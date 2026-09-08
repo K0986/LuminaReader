@@ -1,0 +1,7 @@
+{
+  "name": "Lumina Reader",
+  "description": "Production-quality offline e-book reader for EPUB, PDF, and text with Kindle-class reading themes, annotations, and TTS narration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

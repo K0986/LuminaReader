@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Centered open book design strictly inside 66dp safe zone (21dp to 87dp) -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54">
+        <!-- Open book back pages shadow -->
+        <path
+            android:fillColor="#1E293B"
+            android:pathData="M27,38 C35,35 47,36 54,41 C61,36 73,35 81,38 L81,73 C73,70 61,71 54,76 C47,71 35,70 27,73 Z" />
+        
+        <!-- Left Book Page -->
+        <path
+            android:pathData="M28,36 C36,33 48,34 53,39 L53,74 C48,69 36,68 28,71 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="28"
+                    android:startY="36"
+                    android:endX="53"
+                    android:endY="74"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#F8FAFC" />
+                    <item android:offset="1.0" android:color="#E2E8F0" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Right Book Page -->
+        <path
+            android:pathData="M55,39 C60,34 72,33 80,36 L80,71 C72,68 60,69 55,74 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="55"
+                    android:startY="39"
+                    android:endX="80"
+                    android:endY="71"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFFFFF" />
+                    <item android:offset="1.0" android:color="#E2E8F0" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Elegant Book Spine Ridge -->
+        <path
+            android:fillColor="#38BDF8"
+            android:pathData="M53.5,39.5 L54.5,39.5 L54.5,75 L53.5,75 Z" />
+
+        <!-- Reading Text Lines Left Page -->
+        <path
+            android:fillColor="#94A3B8"
+            android:pathData="M33,45 L48,45 L48,47 L33,47 Z M33,51 L48,51 L48,53 L33,53 Z M33,57 L44,57 L44,59 L33,59 Z" />
+
+        <!-- Reading Text Lines Right Page -->
+        <path
+            android:fillColor="#94A3B8"
+            android:pathData="M60,45 L75,45 L75,47 L60,47 Z M60,51 L75,51 L75,53 L60,53 Z M60,57 L71,57 L71,59 L60,59 Z" />
+
+        <!-- Golden Amber Ribbon Bookmark -->
+        <path
+            android:pathData="M64,34 L70,34 L70,48 L67,45 L64,48 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="67"
+                    android:startY="34"
+                    android:endX="67"
+                    android:endY="48"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#F59E0B" />
+                    <item android:offset="1.0" android:color="#D97706" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+</vector>
+
