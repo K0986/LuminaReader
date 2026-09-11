@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import android.util.LruCache
+import com.example.data.parser.pdf.PdfPageSize
 import java.io.File
 import java.io.FileOutputStream
 
@@ -77,6 +78,13 @@ object PdfBookParser {
         }
     }
 
+    /**
+     * Reads the page count and renders a cover thumbnail.
+     *
+     * Text extraction deliberately does *not* happen here: it is a per-page, resumable job owned by
+     * [com.example.data.repository.PdfTextIndexer], which runs with visible progress the first time
+     * a book is opened. Import therefore stays fast no matter how large the PDF is.
+     */
     fun parse(context: Context, uri: Uri, fallbackTitle: String): ParsedBook {
         var pfd: ParcelFileDescriptor? = null
         var renderer: PdfRenderer? = null
@@ -89,26 +97,7 @@ object PdfBookParser {
                 try {
                     renderer = PdfRenderer(pfd)
                     pageCount = renderer.pageCount.coerceAtLeast(1)
-
-                    // Render page 0 as cover thumbnail
-                    if (pageCount > 0) {
-                        var page: PdfRenderer.Page? = null
-                        try {
-                            page = renderer.openPage(0)
-                            val pw = if (page.width > 0) page.width else 595
-                            val ph = if (page.height > 0) page.height else 842
-                            val width = 360
-                            val height = ((width.toFloat() * ph) / pw).toInt().coerceIn(360, 640)
-                            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                            bitmap.eraseColor(android.graphics.Color.WHITE)
-                            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                            coverBitmap = bitmap
-                        } catch (t: Throwable) {
-                            Log.w(TAG, "Failed to render PDF cover", t)
-                        } finally {
-                            try { page?.close() } catch (ignored: Throwable) {}
-                        }
-                    }
+                    coverBitmap = renderCover(renderer)
                 } catch (t: Throwable) {
                     Log.e(TAG, "PdfRenderer initialization failed in parse", t)
                 }
@@ -120,38 +109,9 @@ object PdfBookParser {
             try { pfd?.close() } catch (ignored: Throwable) {}
         }
 
-        val toc = ArrayList<TocItem>(pageCount.coerceAtMost(2000))
-        val chapters = ArrayList<SpineChapter>(pageCount.coerceAtMost(2000))
-
-        // Only run stream extraction on small PDFs (<= 30 pages) to prevent OOM on 500+ page books
-        val extractedPages = if (pageCount <= 30) {
-            try {
-                PdfTextExtractor.extractPages(context, uri, pageCount)
-            } catch (t: Throwable) {
-                Log.w(TAG, "Failed to extract text from PDF", t)
-                emptyList()
-            }
-        } else {
-            emptyList()
-        }
-
+        val toc = ArrayList<TocItem>(pageCount)
         for (i in 0 until pageCount) {
-            val pageNum = i + 1
-            val pageData = extractedPages.getOrNull(i)
-            val pageText = pageData?.text?.takeIf { it.isNotBlank() } ?: "Page $pageNum of $pageCount"
-            val paragraphs = pageData?.paragraphs?.takeIf { it.isNotEmpty() } ?: listOf(pageText)
-            val chapterTitle = "Page $pageNum"
-
-            toc.add(TocItem("pdf_page_$i", chapterTitle, i))
-            chapters.add(
-                SpineChapter(
-                    id = "pdf_page_$i",
-                    title = chapterTitle,
-                    plainText = pageText,
-                    formattedParagraphs = paragraphs,
-                    wordCount = 1
-                )
-            )
+            toc.add(TocItem("pdf_page_$i", "Page ${i + 1}", i))
         }
 
         return ParsedBook(
@@ -160,9 +120,30 @@ object PdfBookParser {
             format = "PDF",
             coverBitmap = coverBitmap,
             tableOfContents = toc,
-            chapters = chapters,
+            chapters = emptyList(),
             totalPagesEstimate = pageCount
         )
+    }
+
+    private fun renderCover(renderer: PdfRenderer): Bitmap? {
+        if (renderer.pageCount <= 0) return null
+        var page: PdfRenderer.Page? = null
+        return try {
+            page = renderer.openPage(0)
+            val pw = if (page.width > 0) page.width else 595
+            val ph = if (page.height > 0) page.height else 842
+            val width = 360
+            val height = ((width.toFloat() * ph) / pw).toInt().coerceIn(360, 640)
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            bitmap.eraseColor(android.graphics.Color.WHITE)
+            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+            bitmap
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to render PDF cover", t)
+            null
+        } finally {
+            try { page?.close() } catch (ignored: Throwable) {}
+        }
     }
 
     /**
@@ -196,11 +177,18 @@ object PdfBookParser {
         // Cache sized by memory in KB (up to 24MB max cache to prevent device heap exhaustion)
         private val maxMemoryKb = (Runtime.getRuntime().maxMemory() / 1024).toInt()
         private val cacheLimitKb = (maxMemoryKb / 10).coerceIn(12 * 1024, 24 * 1024)
-        private val bitmapCache = object : LruCache<Int, Bitmap>(cacheLimitKb) {
-            override fun sizeOf(key: Int, value: Bitmap): Int {
+
+        /**
+         * Cache key is page *and* render width: a page rendered for the thumbnail-sized viewport
+         * must not be served back when the user has zoomed in and needs the crisp version.
+         */
+        private val bitmapCache = object : LruCache<CacheKey, Bitmap>(cacheLimitKb) {
+            override fun sizeOf(key: CacheKey, value: Bitmap): Int {
                 return (value.byteCount / 1024).coerceAtLeast(1)
             }
         }
+
+        private val pageSizes = mutableMapOf<Int, PdfPageSize>()
 
         var pageCount: Int = 0
             private set
@@ -224,18 +212,44 @@ object PdfBookParser {
             }
         }
 
-        fun renderPage(pageIndex: Int, targetWidth: Int = 960): Bitmap? {
+        /** Page dimensions in PDF points, used to lay out and hit-test the page. */
+        fun pageSize(pageIndex: Int): PdfPageSize? {
             if (pageIndex !in 0 until pageCount) return null
             synchronized(lock) {
-                bitmapCache.get(pageIndex)?.let { return it }
+                pageSizes[pageIndex]?.let { return it }
+                val currentRenderer = renderer ?: return null
+                var page: PdfRenderer.Page? = null
+                return try {
+                    page = currentRenderer.openPage(pageIndex)
+                    val size = PdfPageSize(
+                        widthPt = (if (page.width > 0) page.width else 595).toFloat(),
+                        heightPt = (if (page.height > 0) page.height else 842).toFloat()
+                    )
+                    pageSizes[pageIndex] = size
+                    size
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Failed to read size of page $pageIndex", t)
+                    null
+                } finally {
+                    try { page?.close() } catch (ignored: Throwable) {}
+                }
+            }
+        }
+
+        fun renderPage(pageIndex: Int, targetWidth: Int = 960): Bitmap? {
+            if (pageIndex !in 0 until pageCount) return null
+            val width = targetWidth.coerceIn(MIN_RENDER_WIDTH, MAX_RENDER_WIDTH)
+            val key = CacheKey(pageIndex, width)
+            synchronized(lock) {
+                bitmapCache.get(key)?.let { return it }
                 val currentRenderer = renderer ?: return null
                 var page: PdfRenderer.Page? = null
                 return try {
                     page = currentRenderer.openPage(pageIndex)
                     val pw = if (page.width > 0) page.width else 595
                     val ph = if (page.height > 0) page.height else 842
-                    val width = targetWidth.coerceIn(360, 1080)
-                    val height = ((width.toFloat() * ph) / pw).toInt().coerceIn(360, 2160)
+                    pageSizes[pageIndex] = PdfPageSize(pw.toFloat(), ph.toFloat())
+                    val height = ((width.toFloat() * ph) / pw).toInt().coerceIn(360, 4320)
 
                     var bitmap: Bitmap? = null
                     try {
@@ -243,10 +257,9 @@ object PdfBookParser {
                     } catch (oom: OutOfMemoryError) {
                         Log.w(TAG, "OOM in createBitmap for page $pageIndex, clearing cache and downsizing", oom)
                         bitmapCache.evictAll()
-                        System.gc()
                         try {
-                            val smallerWidth = (width * 0.7f).toInt().coerceAtLeast(360)
-                            val smallerHeight = ((smallerWidth.toFloat() * ph) / pw).toInt().coerceIn(360, 1600)
+                            val smallerWidth = (width * 0.7f).toInt().coerceAtLeast(MIN_RENDER_WIDTH)
+                            val smallerHeight = ((smallerWidth.toFloat() * ph) / pw).toInt().coerceIn(360, 2160)
                             bitmap = Bitmap.createBitmap(smallerWidth, smallerHeight, Bitmap.Config.ARGB_8888)
                         } catch (secondOom: OutOfMemoryError) {
                             Log.e(TAG, "Secondary OOM in createBitmap, skipping page", secondOom)
@@ -257,7 +270,7 @@ object PdfBookParser {
                     if (bitmap != null) {
                         bitmap.eraseColor(android.graphics.Color.WHITE)
                         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                        bitmapCache.put(pageIndex, bitmap)
+                        bitmapCache.put(CacheKey(pageIndex, bitmap.width), bitmap)
                     }
                     bitmap
                 } catch (t: Throwable) {
@@ -276,11 +289,18 @@ object PdfBookParser {
                 try { renderer?.close() } catch (ignored: Throwable) {}
                 try { pfd?.close() } catch (ignored: Throwable) {}
                 try { bitmapCache.evictAll() } catch (ignored: Throwable) {}
+                pageSizes.clear()
                 renderer = null
                 pfd = null
                 pageCount = 0
             }
         }
+
+        private data class CacheKey(val pageIndex: Int, val width: Int)
+
+        companion object {
+            const val MIN_RENDER_WIDTH = 360
+            const val MAX_RENDER_WIDTH = 2560
+        }
     }
 }
-

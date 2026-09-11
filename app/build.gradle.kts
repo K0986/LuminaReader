@@ -57,6 +57,9 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  // Room schemas are committed so that every future version bump can be reviewed and migrated
+  // instead of silently wiping a reader's library.
+  sourceSets { getByName("androidTest") { assets.srcDirs("$projectDir/schemas") } }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
@@ -72,6 +75,8 @@ secrets {
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
+
+ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.

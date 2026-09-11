@@ -18,23 +18,23 @@ object PdfTextExtractor {
 
     /**
      * Extracts text from a PDF file per page.
+     *
+     * This parser reads the whole file into memory, so [maxPages] and [maxFileSizeBytes] cap the
+     * work it will attempt. Pages it cannot read come back with empty text rather than a
+     * placeholder, so callers can tell "no text here" apart from real content.
      */
-    fun extractPages(context: Context, uri: Uri, pageCount: Int): List<ExtractedPage> {
+    fun extractPages(
+        context: Context,
+        uri: Uri,
+        pageCount: Int,
+        maxPages: Int = 30,
+        maxFileSizeBytes: Long = 3L * 1024 * 1024
+    ): List<ExtractedPage> {
         val result = mutableListOf<ExtractedPage>()
 
-        // For books with many pages (e.g. Java textbook with 500+ pages), do not attempt whole-file regex scanning
-        if (pageCount > 30) {
-            for (i in 0 until pageCount) {
-                val pageNum = i + 1
-                result.add(
-                    ExtractedPage(
-                        pageNumber = pageNum,
-                        text = "Page $pageNum of $pageCount",
-                        paragraphs = listOf("Page $pageNum of $pageCount")
-                    )
-                )
-            }
-            return result
+        // For books with many pages (e.g. a 500 page textbook), do not attempt whole-file scanning.
+        if (pageCount > maxPages) {
+            return emptyPages(pageCount)
         }
 
         var inputStream: InputStream? = null
@@ -53,19 +53,9 @@ object PdfTextExtractor {
                 }
             } catch (ignored: Throwable) {}
 
-            // If file is larger than 3MB, skip whole-file in-memory regex parsing
-            if (fileSize > 3 * 1024 * 1024L) {
-                for (i in 0 until pageCount) {
-                    val pageNum = i + 1
-                    result.add(
-                        ExtractedPage(
-                            pageNumber = pageNum,
-                            text = "Page $pageNum of $pageCount",
-                            paragraphs = listOf("Page $pageNum of $pageCount")
-                        )
-                    )
-                }
-                return result
+            // If the file is larger than the cap, skip whole-file in-memory parsing.
+            if (fileSize > maxFileSizeBytes) {
+                return emptyPages(pageCount)
             }
 
             inputStream = context.contentResolver.openInputStream(uri)
@@ -76,8 +66,7 @@ object PdfTextExtractor {
                 val pagesText = parsePdfBytes(bytes, pageCount)
                 for (i in 0 until pageCount) {
                     val pageNum = i + 1
-                    val text = pagesText.getOrNull(i)?.trim() ?: ""
-                    val cleanText = if (text.isNotBlank()) text else "Page $pageNum of $pageCount"
+                    val cleanText = pagesText.getOrNull(i)?.trim() ?: ""
                     val paragraphs = cleanText.split("\n{2,}".toRegex())
                         .map { it.trim() }
                         .filter { it.isNotBlank() }
@@ -85,7 +74,7 @@ object PdfTextExtractor {
                         ExtractedPage(
                             pageNumber = pageNum,
                             text = cleanText,
-                            paragraphs = if (paragraphs.isNotEmpty()) paragraphs else listOf(cleanText)
+                            paragraphs = paragraphs
                         )
                     )
                 }
@@ -100,18 +89,14 @@ object PdfTextExtractor {
         // Ensure at least pageCount entries
         if (result.size < pageCount) {
             for (i in result.size until pageCount) {
-                val pageNum = i + 1
-                result.add(
-                    ExtractedPage(
-                        pageNumber = pageNum,
-                        text = "Page $pageNum of $pageCount",
-                        paragraphs = listOf("Page $pageNum of $pageCount")
-                    )
-                )
+                result.add(ExtractedPage(pageNumber = i + 1, text = "", paragraphs = emptyList()))
             }
         }
         return result
     }
+
+    private fun emptyPages(pageCount: Int): List<ExtractedPage> =
+        (0 until pageCount).map { ExtractedPage(pageNumber = it + 1, text = "", paragraphs = emptyList()) }
 
     private fun parsePdfBytes(bytes: ByteArray, pageCount: Int): List<String> {
         val pdfString = String(bytes, Charsets.ISO_8859_1)
