@@ -119,15 +119,33 @@ fun LibraryScreen(
     var showScanRationale by remember { mutableStateOf(false) }
     var isImporting by remember { mutableStateOf(false) }
 
+    // "Process first, then open": preparing state for the book being opened.
+    var preparingTitle by remember { mutableStateOf<String?>(null) }
+    var prepareError by remember { mutableStateOf<String?>(null) }
+
     val tabs = listOf("All Books", "Reading", "To Read", "Finished", "Favorites")
 
-    // Auto-discover downloaded books (such as java book pdf) from Downloads & Documents on start
-    LaunchedEffect(Unit) {
-        val discovered = bookRepository.scanAndImportDeviceDownloads()
-        if (discovered.isNotEmpty()) {
-            Toast.makeText(context, "Discovered ${discovered.size} book(s) in Downloads!", Toast.LENGTH_SHORT).show()
+    /**
+     * Opens a book only after it has been successfully parsed and its first page warmed.
+     * Failures are reported here, in the library, rather than stranding the reader on a
+     * permanent spinner.
+     */
+    fun openBook(book: Book) {
+        preparingTitle = book.title
+        scope.launch {
+            val result = bookRepository.prepareBook(book)
+            preparingTitle = null
+            result
+                .onSuccess { onBookClick(book.id) }
+                .onFailure { prepareError = it.message ?: "This book could not be opened." }
         }
     }
+
+    // The library used to kick off a whole-device scan of Downloads, Documents and
+    // MediaStore here, on every single visit to this screen -- hashing and importing
+    // every PDF, EPUB and TXT it could reach without ever asking. That is both a long
+    // startup stall and a surprising thing to do to someone's files. Scanning is now
+    // only ever started explicitly, from "Scan device folders".
 
     // SAF Document Picker for Books
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -335,7 +353,7 @@ fun LibraryScreen(
                         }
 
                         Text(
-                            text = "${s.totalTimeMinutes}m total read • ${s.totalPagesRead} pages",
+                            text = "${s.totalTimeMinutes}m total read \u2022 ${s.totalPagesRead} pages",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -350,7 +368,7 @@ fun LibraryScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 6.dp)
                         .testTag("continue_reading_card")
-                        .clickable { onBookClick(currentlyReadingBook.id) },
+                        .clickable { openBook(currentlyReadingBook) },
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
@@ -394,7 +412,7 @@ fun LibraryScreen(
                             )
                             if (currentlyReadingBook.currentChapterTitle.isNotBlank()) {
                                 Text(
-                                    text = "${currentlyReadingBook.currentChapterTitle} • ${currentlyReadingBook.progressPercent.toInt()}%",
+                                    text = "${currentlyReadingBook.currentChapterTitle} \u2022 ${currentlyReadingBook.progressPercent.toInt()}%",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -522,7 +540,7 @@ fun LibraryScreen(
                         items(filteredBooks, key = { it.id }) { book ->
                             BookGridCard(
                                 book = book,
-                                onClick = { onBookClick(book.id) },
+                                onClick = { openBook(book) },
                                 onToggleFavorite = { isFav ->
                                     scope.launch { bookRepository.toggleFavorite(book.id, isFav) }
                                 },
@@ -552,7 +570,7 @@ fun LibraryScreen(
                         items(filteredBooks, key = { it.id }) { book ->
                             BookListRow(
                                 book = book,
-                                onClick = { onBookClick(book.id) },
+                                onClick = { openBook(book) },
                                 onToggleFavorite = { isFav ->
                                     scope.launch { bookRepository.toggleFavorite(book.id, isFav) }
                                 },
@@ -576,6 +594,38 @@ fun LibraryScreen(
                 }
             }
         }
+    }
+
+    // "Process first, then open": progress and failure for the book being prepared.
+    preparingTitle?.let { title ->
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Opening book") },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(color = AmberGold, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column {
+                        Text(title, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "Reading the document and preparing the first page...",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = { }
+        )
+    }
+
+    prepareError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { prepareError = null },
+            title = { Text("Could not open this book") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = { prepareError = null }) { Text("OK") } }
+        )
     }
 
     // Add Book Options Dialog
