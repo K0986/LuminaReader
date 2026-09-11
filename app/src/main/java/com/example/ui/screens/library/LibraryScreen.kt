@@ -63,7 +63,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,6 +81,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Book
 import com.example.data.repository.BookRepository
+import com.example.data.repository.ImportOutcome
 import com.example.data.repository.ReadingSessionRepository
 import com.example.data.sample.SampleBooks
 import com.example.ui.theme.AmberGold
@@ -121,14 +121,6 @@ fun LibraryScreen(
 
     val tabs = listOf("All Books", "Reading", "To Read", "Finished", "Favorites")
 
-    // Auto-discover downloaded books (such as java book pdf) from Downloads & Documents on start
-    LaunchedEffect(Unit) {
-        val discovered = bookRepository.scanAndImportDeviceDownloads()
-        if (discovered.isNotEmpty()) {
-            Toast.makeText(context, "Discovered ${discovered.size} book(s) in Downloads!", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     // SAF Document Picker for Books
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -143,13 +135,15 @@ fun LibraryScreen(
                     )
                 } catch (e: Exception) {}
 
-                val result = bookRepository.importBookFromUri(uri)
-                isImporting = false
-                result.onSuccess { book ->
-                    Toast.makeText(context, "Added '${book.title}' to library!", Toast.LENGTH_SHORT).show()
-                }.onFailure { error ->
-                    Toast.makeText(context, error.message ?: "Failed to import book", Toast.LENGTH_LONG).show()
+                when (val outcome = bookRepository.importBook(uri)) {
+                    is ImportOutcome.Added ->
+                        Toast.makeText(context, "Added '${outcome.book.title}' to library!", Toast.LENGTH_SHORT).show()
+                    is ImportOutcome.AlreadyInLibrary ->
+                        Toast.makeText(context, "'${outcome.book.title}' is already in your library", Toast.LENGTH_SHORT).show()
+                    is ImportOutcome.Failed ->
+                        Toast.makeText(context, outcome.message, Toast.LENGTH_LONG).show()
                 }
+                isImporting = false
             }
         }
     }
@@ -696,10 +690,13 @@ fun LibraryScreen(
                                         customTitle = "TraceMonkey: JIT Compiler"
                                     )
                                     isImporting = false
-                                    result.onSuccess { book ->
-                                        Toast.makeText(context, "Downloaded '${book.title}' (${book.totalPages} pages)!", Toast.LENGTH_LONG).show()
-                                    }.onFailure { error ->
-                                        Toast.makeText(context, "Download failed: ${error.message}", Toast.LENGTH_LONG).show()
+                                    when (result) {
+                                        is ImportOutcome.Added ->
+                                            Toast.makeText(context, "Downloaded '${result.book.title}' (${result.book.totalPages} pages)!", Toast.LENGTH_LONG).show()
+                                        is ImportOutcome.AlreadyInLibrary ->
+                                            Toast.makeText(context, "'${result.book.title}' is already in your library", Toast.LENGTH_SHORT).show()
+                                        is ImportOutcome.Failed ->
+                                            Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
                                     }
                                 }
                             },

@@ -27,6 +27,26 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.security.MessageDigest
 
+/**
+ * Result of trying to add a file to the library.
+ *
+ * Importing the same book twice is not an error: when a reader shares a PDF they already own, the
+ * right behaviour is to open their existing copy (with its progress and highlights intact) rather
+ * than to complain.
+ */
+sealed interface ImportOutcome {
+    data class Added(val book: Book) : ImportOutcome
+    data class AlreadyInLibrary(val book: Book) : ImportOutcome
+    data class Failed(val message: String, val cause: Throwable? = null) : ImportOutcome
+
+    val bookOrNull: Book?
+        get() = when (this) {
+            is Added -> book
+            is AlreadyInLibrary -> book
+            is Failed -> null
+        }
+}
+
 class BookRepository(private val context: Context) {
 
     private val db = AppDatabase.getDatabase(context)
@@ -93,7 +113,7 @@ class BookRepository(private val context: Context) {
         parsed
     }
 
-    suspend fun importBookFromUri(uri: Uri, displayName: String? = null): Result<Book> = withContext(Dispatchers.IO) {
+    suspend fun importBook(uri: Uri, displayName: String? = null): ImportOutcome = withContext(Dispatchers.IO) {
         try {
             val resolvedName = displayName ?: getFileNameFromUri(uri) ?: "Unknown Book"
             val mimeType = try { context.contentResolver.getType(uri) } catch (e: Exception) { null }
@@ -105,33 +125,38 @@ class BookRepository(private val context: Context) {
                 else -> "EPUB"
             }
 
-            // Copy file to app internal storage or keep persistent URI
             val hash = computeUriHash(uri)
             val duplicate = bookDao.getBookByHash(hash)
             if (duplicate != null) {
-                return@withContext Result.failure(Exception("This book is already in your library ('${duplicate.title}')"))
+                return@withContext ImportOutcome.AlreadyInLibrary(duplicate)
             }
 
-            // Copy file to app internal storage for guaranteed permanent seekable access
+            // Copy the file into app storage. A shared content:// URI is only readable for as long
+            // as the sending app grants it, so owning a local copy is what makes the book reopenable
+            // tomorrow, and gives PdfRenderer the seekable descriptor it requires.
             val booksDir = File(context.filesDir, "books")
             if (!booksDir.exists()) booksDir.mkdirs()
             val safeExt = format.lowercase()
             val localBookFile = File(booksDir, "book_${System.currentTimeMillis()}.$safeExt")
-            try {
+            val copied = try {
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     FileOutputStream(localBookFile).use { output ->
                         input.copyTo(output)
                     }
                 }
+                localBookFile.exists() && localBookFile.length() > 0L
             } catch (e: Exception) {
-                // Ignore and fallback
+                Log.w("BookRepository", "Could not copy ${uri} into library", e)
+                false
             }
 
-            val persistentUri = if (localBookFile.exists() && localBookFile.length() > 0L) {
-                Uri.fromFile(localBookFile)
-            } else {
-                uri
+            if (!copied && uri.scheme == "content") {
+                return@withContext ImportOutcome.Failed(
+                    "Could not read this file. Ask the sending app to share it again, or copy it to your device first."
+                )
             }
+
+            val persistentUri = if (copied) Uri.fromFile(localBookFile) else uri
 
             // Parse metadata and cover
             val parsed = when (format) {
@@ -173,16 +198,16 @@ class BookRepository(private val context: Context) {
                 readingStatus = "UNREAD",
                 fileHash = hash,
                 totalPages = parsed.totalPagesEstimate,
-                fileSizeBytes = getFileSize(uri),
+                fileSizeBytes = getFileSize(persistentUri),
                 currentChapterTitle = parsed.tableOfContents.firstOrNull()?.title ?: ""
             )
 
             val newId = bookDao.insertBook(book)
             val insertedBook = book.copy(id = newId)
             parsedBookCache[newId] = parsed
-            Result.success(insertedBook)
+            ImportOutcome.Added(insertedBook)
         } catch (e: Exception) {
-            Result.failure(e)
+            ImportOutcome.Failed(e.message ?: "Failed to import this book", e)
         }
     }
 
@@ -296,6 +321,9 @@ class BookRepository(private val context: Context) {
                     bytesRead = input.read(buffer)
                 }
             }
+            // Two different books produced by the same tool can share a 64KB header, so the file
+            // length is mixed in as well: a false duplicate would silently open the wrong book.
+            md.update(getFileSize(uri).toString().toByteArray())
             md.digest().joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
             "hash_${uri.toString().hashCode()}_${System.currentTimeMillis()}"
@@ -305,7 +333,7 @@ class BookRepository(private val context: Context) {
     suspend fun downloadAndImportPdf(
         urlString: String = "https://raw.githubusercontent.com/mozilla/pdf.js/master/test/pdfs/tracemonkey.pdf",
         customTitle: String? = null
-    ): Result<Book> = withContext(Dispatchers.IO) {
+    ): ImportOutcome = withContext(Dispatchers.IO) {
         try {
             val url = java.net.URL(urlString)
             val connection = url.openConnection() as java.net.HttpURLConnection
@@ -317,7 +345,7 @@ class BookRepository(private val context: Context) {
 
             val responseCode = connection.responseCode
             if (responseCode !in 200..299) {
-                return@withContext Result.failure(Exception("HTTP Error $responseCode: ${connection.responseMessage}"))
+                return@withContext ImportOutcome.Failed("HTTP Error $responseCode: ${connection.responseMessage}")
             }
 
             val booksDir = File(context.filesDir, "books")
@@ -334,9 +362,9 @@ class BookRepository(private val context: Context) {
                 }
             }
 
-            importBookFromUri(Uri.fromFile(localFile), displayName = customTitle ?: targetName.removeSuffix(".pdf").replace("_", " "))
+            importBook(Uri.fromFile(localFile), displayName = customTitle ?: targetName.removeSuffix(".pdf").replace("_", " "))
         } catch (t: Throwable) {
-            Result.failure(Exception("Download failed: ${t.localizedMessage}", t))
+            ImportOutcome.Failed("Download failed: ${t.localizedMessage}", t)
         }
     }
 
@@ -406,8 +434,8 @@ class BookRepository(private val context: Context) {
                         }
                     } else if (name != null) {
                         val contentUri = ContentUris.withAppendedId(MediaStore.Files.getContentUri("external"), id)
-                        val res = importBookFromUri(contentUri, name)
-                        res.getOrNull()?.let { importedBooks.add(it) }
+                        val outcome = importBook(contentUri, name)
+                        (outcome as? ImportOutcome.Added)?.let { importedBooks.add(it.book) }
                     }
                 }
             }
@@ -419,8 +447,8 @@ class BookRepository(private val context: Context) {
         val uniqueFiles = candidateFiles.distinctBy { it.absolutePath }
         for (file in uniqueFiles) {
             try {
-                val res = importBookFromUri(Uri.fromFile(file), file.name)
-                res.getOrNull()?.let { importedBooks.add(it) }
+                val outcome = importBook(Uri.fromFile(file), file.name)
+                (outcome as? ImportOutcome.Added)?.let { importedBooks.add(it.book) }
             } catch (e: Exception) {
                 Log.w("BookRepository", "Discovered file import note: ${file.name}", e)
             }

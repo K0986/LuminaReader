@@ -1,5 +1,6 @@
 package com.example.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -40,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -52,6 +54,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.data.repository.BookRepository
+import com.example.data.repository.PdfTextIndexer
 import com.example.data.repository.ReadingSessionRepository
 import com.example.data.repository.SettingsRepository
 import com.example.ui.navigation.Screen
@@ -68,9 +71,13 @@ fun LuminaApp(
     bookRepository: BookRepository,
     settingsRepository: SettingsRepository,
     sessionRepository: ReadingSessionRepository,
+    pdfTextIndexer: PdfTextIndexer,
     initialOpenBookId: Long? = null,
+    importMessage: String? = null,
+    onImportMessageShown: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -83,6 +90,13 @@ fun LuminaApp(
     // Seed database with classics on first launch if empty
     LaunchedEffect(Unit) {
         bookRepository.initializeLibraryIfEmpty()
+    }
+
+    // Surface the result of an import triggered from outside the app (share sheet, "Open with").
+    LaunchedEffect(importMessage) {
+        val message = importMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        onImportMessageShown()
     }
 
     // Direct open intent if launched with a book
@@ -254,6 +268,7 @@ fun LuminaApp(
                     bookRepository = bookRepository,
                     settingsRepository = settingsRepository,
                     sessionRepository = sessionRepository,
+                    pdfTextIndexer = pdfTextIndexer,
                     onBack = { navController.popBackStack() }
                 )
             }
