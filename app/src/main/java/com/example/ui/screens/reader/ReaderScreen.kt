@@ -1,7 +1,6 @@
 package com.example.ui.screens.reader
 
 import android.app.Activity
-import android.graphics.Bitmap
 import android.net.Uri
 import android.view.WindowManager
 import android.widget.Toast
@@ -10,23 +9,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,46 +25,30 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Article
+import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.FormatColorText
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.NoteAdd
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -82,8 +57,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -91,26 +64,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -124,16 +91,19 @@ import com.example.data.model.ReaderTheme
 import com.example.data.model.ReadingMode
 import com.example.data.parser.ParsedBook
 import com.example.data.parser.PdfBookParser
+import com.example.data.parser.pdf.PdfSelection
+import com.example.data.parser.pdf.PdfTextCapability
+import com.example.data.parser.pdf.PdfTextEngine
+import com.example.data.parser.pdf.PdfTextEngines
 import com.example.data.repository.BookRepository
+import com.example.data.repository.PdfIndexProgress
+import com.example.data.repository.PdfTextIndexer
 import com.example.data.repository.ReadingSessionRepository
+import com.example.data.repository.SearchSnippets
 import com.example.data.repository.SettingsRepository
 import com.example.domain.dictionary.DictionaryLookup
 import com.example.domain.tts.TextToSpeechManager
 import com.example.ui.theme.AmberGold
-import com.example.ui.theme.HighlightAmber
-import com.example.ui.theme.HighlightMint
-import com.example.ui.theme.HighlightRose
-import com.example.ui.theme.HighlightSky
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -143,13 +113,14 @@ enum class PdfDisplayMode {
     TEXT
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderScreen(
     bookId: Long,
     bookRepository: BookRepository,
     settingsRepository: SettingsRepository,
     sessionRepository: ReadingSessionRepository,
+    pdfTextIndexer: PdfTextIndexer,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -167,30 +138,29 @@ fun ReaderScreen(
     // Chrome visibility (top & bottom navigation bars)
     var showChrome by remember { mutableStateOf(false) }
 
-    // PDF View Mode (Visual Page vs Reflowable Text & Cursor Selection)
+    // PDF view mode: the rendered page, or its reflowed text
     var pdfDisplayMode by remember { mutableStateOf(PdfDisplayMode.PAGE) }
 
-    // Cursor-based text selection state
-    var activeCursorSelection by remember { mutableStateOf<CursorSelectionState?>(null) }
+    // Selections: reflowed text keeps a character range, the PDF page keeps a platform selection
+    var textSelection by remember { mutableStateOf<TextSelection?>(null) }
+    var pdfSelection by remember { mutableStateOf<PdfSelection?>(null) }
+    var isPageZoomed by remember { mutableStateOf(false) }
 
-    // Sheets & Dialogs
+    // Sheets & dialogs
     var showAppearanceSheet by remember { mutableStateOf(false) }
     var showTocSheet by remember { mutableStateOf(false) }
     var showSearchSheet by remember { mutableStateOf(false) }
     var showTtsSheet by remember { mutableStateOf(false) }
     var showNoteDialog by remember { mutableStateOf(false) }
-    var selectedParagraphText by remember { mutableStateOf<String?>(null) }
     var activeNoteInput by remember { mutableStateOf("") }
     var wordLookupResult by remember { mutableStateOf<com.example.domain.dictionary.WordDefinition?>(null) }
 
-    // TTS Manager
     val ttsManager = remember { TextToSpeechManager(context) }
     val isTtsPlaying by ttsManager.isPlaying.collectAsState()
     val currentTtsSentence by ttsManager.currentSentenceIndex.collectAsState()
     val sentencesFlow by ttsManager.sentencesFlow.collectAsState()
     val sleepTimerMins by ttsManager.sleepTimerMinutesLeft.collectAsState()
 
-    // Keep screen on
     DisposableEffect(settings.keepScreenOn) {
         val window = (context as? Activity)?.window
         if (settings.keepScreenOn) {
@@ -201,7 +171,28 @@ fun ReaderScreen(
         }
     }
 
-    // Session tracking
+    // In-reader brightness. The setting already existed but was never applied to the window, so
+    // "Screen Brightness" did nothing; -1 means "follow the system".
+    DisposableEffect(settings.brightness) {
+        val window = (context as? Activity)?.window
+        window?.let {
+            it.attributes = it.attributes.apply {
+                screenBrightness = if (settings.brightness < 0f) {
+                    WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                } else {
+                    settings.brightness.coerceIn(0.05f, 1f)
+                }
+            }
+        }
+        onDispose {
+            window?.let {
+                it.attributes = it.attributes.apply {
+                    screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                }
+            }
+        }
+    }
+
     DisposableEffect(bookId) {
         sessionRepository.startSession(bookId)
         onDispose {
@@ -216,75 +207,70 @@ fun ReaderScreen(
     val textColor = Color(currentTheme.textHex)
     val isPdf = book?.format == "PDF"
 
-    // Load book content once per bookId to prevent infinite update loop
+    // Load book content once per bookId to prevent an infinite update loop
     var loadedBookId by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(bookId, book?.id) {
-        val b = book ?: return@LaunchedEffect
+        val current = book ?: return@LaunchedEffect
         if (loadedBookId != bookId) {
             isLoading = true
             loadedBookId = bookId
-            withContext(Dispatchers.IO) {
-                val content = bookRepository.loadBookContent(b)
-                withContext(Dispatchers.Main) {
-                    parsedBook = content
-                    isLoading = false
-                }
-            }
+            val content = withContext(Dispatchers.IO) { bookRepository.loadBookContent(current) }
+            parsedBook = content
+            isLoading = false
         }
     }
 
-    // PDF document renderer session loaded safely on IO dispatcher
+    // Page rendering session
     var pdfRenderer by remember { mutableStateOf<PdfBookParser.PdfDocumentRenderer?>(null) }
-    var isRendererLoading by remember { mutableStateOf(false) }
+    // Text layer session (words, glyph boxes, search) — independent of rendering
+    var pdfTextEngine by remember { mutableStateOf<PdfTextEngine?>(null) }
 
     LaunchedEffect(book?.filePath, isPdf) {
-        if (isPdf && book != null) {
-            isRendererLoading = true
-            withContext(Dispatchers.IO) {
-                val r = PdfBookParser.createRenderer(context, Uri.parse(book.filePath))
-                withContext(Dispatchers.Main) {
-                    pdfRenderer?.close()
-                    pdfRenderer = r
-                    isRendererLoading = false
-                }
+        val path = book?.filePath
+        if (isPdf && path != null) {
+            val uri = Uri.parse(path)
+            val renderer = withContext(Dispatchers.IO) { PdfBookParser.createRenderer(context, uri) }
+            pdfRenderer?.close()
+            pdfRenderer = renderer
+            val engine = withContext(Dispatchers.IO) {
+                PdfTextEngines.open(context, uri, renderer?.pageCount ?: 0)
             }
+            pdfTextEngine?.close()
+            pdfTextEngine = engine
         } else {
             pdfRenderer?.close()
             pdfRenderer = null
+            pdfTextEngine?.close()
+            pdfTextEngine = null
         }
     }
 
     DisposableEffect(Unit) {
         onDispose {
             pdfRenderer?.close()
+            pdfTextEngine?.close()
         }
     }
 
-    // Current page / chapter count
     val totalChapters = (
-        if (isPdf && (pdfRenderer?.pageCount ?: 0) > 0) {
-            pdfRenderer!!.pageCount
+        if (isPdf) {
+            pdfRenderer?.pageCount?.takeIf { it > 0 } ?: book?.totalPages ?: 1
         } else {
             parsedBook?.chapters?.size ?: 1
         }
-    ).coerceAtLeast(1)
+        ).coerceAtLeast(1)
 
     var isDraggingSlider by remember { mutableStateOf(false) }
     var sliderDragValue by remember { mutableFloatStateOf(0f) }
     var showJumpToPageDialog by remember { mutableStateOf(false) }
     var jumpToPageInput by remember { mutableStateOf("") }
 
-    val initialPage = remember(bookId) {
-        val loc = book?.progressLocation?.toIntOrNull() ?: 0
-        loc.coerceAtLeast(0)
-    }
-
     val pagerState = rememberPagerState(
-        initialPage = initialPage.coerceIn(0, (totalChapters - 1).coerceAtLeast(0)),
+        initialPage = 0,
         pageCount = { totalChapters }
     )
 
-    // Restore reading location only once upon opening the book
+    // Restore the reading location once per book
     var hasRestoredLocation by remember(bookId) { mutableStateOf(false) }
     LaunchedEffect(totalChapters, book?.id) {
         if (!hasRestoredLocation && totalChapters > 1 && book != null) {
@@ -296,7 +282,63 @@ fun ReaderScreen(
         }
     }
 
-    // Auto-update reading progress when page changes
+    // ---- "Process first, then open": one-time text extraction for PDFs -------------------------
+    var indexProgress by remember(bookId) { mutableStateOf<PdfIndexProgress?>(null) }
+    var openedWithoutIndex by remember(bookId) { mutableStateOf(false) }
+
+    LaunchedEffect(bookId, isPdf, totalChapters, book?.filePath) {
+        val current = book ?: return@LaunchedEffect
+        if (!isPdf || totalChapters <= 0) return@LaunchedEffect
+        if (pdfTextIndexer.isIndexed(bookId, totalChapters)) {
+            indexProgress = PdfIndexProgress.Complete(
+                pagesWithText = pdfTextIndexer.pagesWithText(bookId),
+                total = totalChapters,
+                capability = pdfTextEngine?.capability ?: PdfTextCapability.TEXT_ONLY
+            )
+            return@LaunchedEffect
+        }
+        pdfTextIndexer.index(current, totalChapters).collect { progress ->
+            indexProgress = progress
+        }
+    }
+
+    // Current page text for PDFs comes from the index, not from a re-parse on every swipe.
+    var pdfPageText by remember(bookId) { mutableStateOf("") }
+    LaunchedEffect(bookId, isPdf, pagerState.currentPage, indexProgress) {
+        if (!isPdf) return@LaunchedEffect
+        pdfPageText = pdfTextIndexer.pageText(bookId, pagerState.currentPage).orEmpty()
+    }
+
+    // Saved highlights, re-resolved to rectangles so they can be painted onto the page image.
+    var pdfHighlightOverlays by remember(bookId) { mutableStateOf<List<PdfHighlightOverlay>>(emptyList()) }
+    LaunchedEffect(pagerState.currentPage, highlights, pdfTextEngine) {
+        val engine = pdfTextEngine
+        if (!isPdf || engine == null || engine.capability != PdfTextCapability.TEXT_AND_SELECTION) {
+            pdfHighlightOverlays = emptyList()
+            return@LaunchedEffect
+        }
+        val page = pagerState.currentPage
+        pdfHighlightOverlays = withContext(Dispatchers.IO) {
+            highlights.mapNotNull { highlight ->
+                val decoded = PdfHighlightLocation.decode(highlight.location) ?: return@mapNotNull null
+                if (decoded.pageIndex != page) return@mapNotNull null
+                val resolved = engine.selectRange(page, decoded.startChar, decoded.endChar)
+                    ?: return@mapNotNull null
+                PdfHighlightOverlay(
+                    rects = resolved.rects,
+                    color = parseHighlightColor(highlight.colorHex)
+                )
+            }
+        }
+    }
+
+    // Clearing a stale selection when the page changes avoids acting on text you can no longer see.
+    LaunchedEffect(pagerState.currentPage) {
+        textSelection = null
+        pdfSelection = null
+    }
+
+    // Auto-update reading progress when the page changes
     LaunchedEffect(pagerState.currentPage, totalChapters) {
         if (!isLoading && book != null && totalChapters > 0) {
             val currentIdx = pagerState.currentPage
@@ -306,45 +348,43 @@ fun ReaderScreen(
             } else {
                 parsedBook?.chapters?.getOrNull(currentIdx)?.title ?: ""
             }
-            val status = if (percent >= 99f) "FINISHED" else "READING"
             bookRepository.updateProgress(
                 bookId = book.id,
                 percent = percent,
                 location = currentIdx.toString(),
                 chapterTitle = chapterTitle,
-                status = status
+                status = if (percent >= 99f) "FINISHED" else "READING"
             )
         }
     }
 
-    // Current page bookmark check
     val isCurrentPageBookmarked = remember(bookmarks, pagerState.currentPage) {
         bookmarks.any { it.pageIndex == pagerState.currentPage }
     }
 
     val currentChapter = parsedBook?.chapters?.getOrNull(pagerState.currentPage)
-
-    // Sync TTS content when chapter changes or TTS sheet opens
-    LaunchedEffect(pagerState.currentPage, parsedBook) {
-        currentChapter?.let { ch ->
-            if (ch.plainText.isNotBlank()) {
-                ttsManager.setContent(ch.plainText)
-            }
+    val currentPageTitle = if (isPdf) "Page ${pagerState.currentPage + 1}" else currentChapter?.title.orEmpty()
+    val currentPageText = if (isPdf) pdfPageText else currentChapter?.plainText.orEmpty()
+    val currentParagraphs = remember(currentPageText, isPdf, currentChapter) {
+        if (isPdf) {
+            TextSelectionMath.toParagraphs(pdfPageText)
+        } else {
+            currentChapter?.formattedParagraphs ?: emptyList()
         }
     }
 
-    // Auto-advance to next page when reading finishes current page
-    LaunchedEffect(pagerState, totalChapters, parsedBook) {
+    LaunchedEffect(currentPageText) {
+        if (currentPageText.isNotBlank()) {
+            ttsManager.setContent(currentPageText)
+        }
+    }
+
+    // Narration rolls onto the next page when the current one finishes
+    LaunchedEffect(pagerState, totalChapters, isPdf) {
         ttsManager.onPageFinishedListener = {
             if (pagerState.currentPage < totalChapters - 1) {
                 scope.launch {
-                    val next = pagerState.currentPage + 1
-                    pagerState.animateScrollToPage(next)
-                    val nextCh = parsedBook?.chapters?.getOrNull(next)
-                    nextCh?.let { ch ->
-                        ttsManager.setContent(ch.plainText)
-                        ttsManager.play()
-                    }
+                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
                 }
             }
         }
@@ -367,9 +407,26 @@ fun ReaderScreen(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator(color = AmberGold)
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Loading book pages...", color = textColor)
+                Text("Loading book...", color = textColor)
             }
         }
+        return
+    }
+
+    val preparation = indexProgress
+    val needsPreparation = isPdf && !openedWithoutIndex && preparation !is PdfIndexProgress.Complete
+    if (needsPreparation) {
+        DocumentPreparingView(
+            title = book.title,
+            done = (preparation as? PdfIndexProgress.Working)?.done ?: 0,
+            total = (preparation as? PdfIndexProgress.Working)?.total ?: totalChapters,
+            errorMessage = (preparation as? PdfIndexProgress.Failed)?.message,
+            backgroundColor = bgColor,
+            textColor = textColor,
+            onReadNow = { openedWithoutIndex = true },
+            onBack = onBack,
+            modifier = modifier
+        )
         return
     }
 
@@ -379,81 +436,29 @@ fun ReaderScreen(
             .background(bgColor)
             .testTag("reader_root")
     ) {
-        // PDF or Reflowable Book Viewer
         if (isPdf && pdfDisplayMode == PdfDisplayMode.TEXT) {
-            // PDF Text Mode: reflowable text with word-level cursor selection & high readability
             Column(modifier = Modifier.fillMaxSize()) {
-                Surface(
-                    color = (if (currentTheme == ReaderTheme.OLED) Color(0xFF1E293B) else MaterialTheme.colorScheme.surfaceVariant).copy(alpha = 0.95f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Article, contentDescription = null, tint = AmberGold, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("PDF Text & Cursor Selection", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AmberGold)
-                        }
-                        TextButton(
-                            onClick = { pdfDisplayMode = PdfDisplayMode.PAGE },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("View Page", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
+                PdfTextModeBanner(
+                    theme = currentTheme,
+                    onShowPage = { pdfDisplayMode = PdfDisplayMode.PAGE }
+                )
 
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize()
                 ) { pageIndex ->
-                    val chapter = parsedBook?.chapters?.getOrNull(pageIndex)
-                    if (chapter != null) {
-                        ChapterPageView(
-                            chapter = chapter,
-                            settings = settings,
-                            textColor = textColor,
-                            fontFamily = resolvedFontFamily,
-                            onCenterTap = { showChrome = !showChrome },
-                            onPrevPage = {
-                                if (pagerState.currentPage > 0) {
-                                    scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
-                                }
-                            },
-                            onNextPage = {
-                                if (pagerState.currentPage < totalChapters - 1) {
-                                    scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
-                                }
-                            },
-                            activeSelection = activeCursorSelection,
-                            onSelectionChange = { activeCursorSelection = it },
-                            highlights = highlights.filter { it.pageIndex == pageIndex },
-                            isTtsActive = isTtsPlaying,
-                            activeTtsSentence = currentTtsSentence
-                        )
+                    val paragraphs = if (pageIndex == pagerState.currentPage) {
+                        currentParagraphs
+                    } else {
+                        emptyList()
                     }
-                }
-            }
-        } else if (isPdf) {
-            if (settings.readingMode == ReadingMode.PAGINATED) {
-                // Paginated Horizontal Pager for PDF - supports swiping left/right, tap page turns, pinch-to-zoom!
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("pdf_horizontal_pager")
-                ) { pageIndex ->
-                    PdfSinglePageView(
-                        pageIndex = pageIndex,
-                        pdfRenderer = pdfRenderer,
-                        theme = currentTheme,
+                    ReflowPageView(
+                        title = "Page ${pageIndex + 1}",
+                        paragraphs = paragraphs,
+                        emptyMessage = "No selectable text was found on this page. It is most likely a scan or an image.",
+                        settings = settings,
+                        textColor = textColor,
+                        fontFamily = resolvedFontFamily,
                         onCenterTap = { showChrome = !showChrome },
                         onPrevPage = {
                             if (pagerState.currentPage > 0) {
@@ -465,13 +470,50 @@ fun ReaderScreen(
                                 scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
                             }
                         },
-                        onOpenTextMode = {
-                            pdfDisplayMode = PdfDisplayMode.TEXT
+                        activeSelection = textSelection,
+                        onSelectionChange = { textSelection = it },
+                        highlights = highlights.filter { it.pageIndex == pageIndex },
+                        isTtsActive = isTtsPlaying,
+                        activeTtsSentence = currentTtsSentence
+                    )
+                }
+            }
+        } else if (isPdf) {
+            if (settings.readingMode == ReadingMode.PAGINATED) {
+                HorizontalPager(
+                    state = pagerState,
+                    // A zoomed page owns horizontal drags, otherwise panning flips the page instead.
+                    userScrollEnabled = !isPageZoomed,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("pdf_horizontal_pager")
+                ) { pageIndex ->
+                    PdfSinglePageView(
+                        pageIndex = pageIndex,
+                        pdfRenderer = pdfRenderer,
+                        textEngine = pdfTextEngine,
+                        theme = currentTheme,
+                        selection = pdfSelection?.takeIf { it.pageIndex == pageIndex },
+                        onSelectionChange = { pdfSelection = it },
+                        highlights = if (pageIndex == pagerState.currentPage) pdfHighlightOverlays else emptyList(),
+                        onZoomChange = { zoomed ->
+                            if (pageIndex == pagerState.currentPage) isPageZoomed = zoomed
                         },
+                        onCenterTap = { showChrome = !showChrome },
+                        onPrevPage = {
+                            if (pagerState.currentPage > 0) {
+                                scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+                            }
+                        },
+                        onNextPage = {
+                            if (pagerState.currentPage < totalChapters - 1) {
+                                scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                            }
+                        },
+                        onOpenTextMode = { pdfDisplayMode = PdfDisplayMode.TEXT },
                         onStartTts = {
-                            val ch = parsedBook?.chapters?.getOrNull(pageIndex)
-                            if (ch != null && ch.plainText.isNotBlank()) {
-                                ttsManager.setContent(ch.plainText)
+                            if (currentPageText.isNotBlank()) {
+                                ttsManager.setContent(currentPageText)
                                 ttsManager.play()
                             }
                             showTtsSheet = true
@@ -479,7 +521,6 @@ fun ReaderScreen(
                     )
                 }
             } else {
-                // Continuous Vertical Scroll Mode for PDF
                 PdfContinuousScrollView(
                     pdfRenderer = pdfRenderer,
                     totalPages = totalChapters,
@@ -494,7 +535,6 @@ fun ReaderScreen(
                 )
             }
         } else {
-            // Reflowable EPUB / TXT Reader
             if (settings.readingMode == ReadingMode.PAGINATED) {
                 HorizontalPager(
                     state = pagerState,
@@ -502,8 +542,10 @@ fun ReaderScreen(
                 ) { pageIndex ->
                     val chapter = parsedBook?.chapters?.getOrNull(pageIndex)
                     if (chapter != null) {
-                        ChapterPageView(
-                            chapter = chapter,
+                        ReflowPageView(
+                            title = chapter.title,
+                            paragraphs = chapter.formattedParagraphs,
+                            emptyMessage = "This chapter has no text.",
                             settings = settings,
                             textColor = textColor,
                             fontFamily = resolvedFontFamily,
@@ -518,8 +560,8 @@ fun ReaderScreen(
                                     scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
                                 }
                             },
-                            activeSelection = activeCursorSelection,
-                            onSelectionChange = { activeCursorSelection = it },
+                            activeSelection = textSelection,
+                            onSelectionChange = { textSelection = it },
                             highlights = highlights.filter { it.pageIndex == pageIndex },
                             isTtsActive = isTtsPlaying,
                             activeTtsSentence = currentTtsSentence
@@ -527,15 +569,14 @@ fun ReaderScreen(
                     }
                 }
             } else {
-                // Continuous Vertical Scroll Mode
                 ContinuousScrollView(
                     parsedBook = parsedBook,
                     settings = settings,
                     textColor = textColor,
                     fontFamily = resolvedFontFamily,
                     onCenterTap = { showChrome = !showChrome },
-                    activeSelection = activeCursorSelection,
-                    onSelectionChange = { activeCursorSelection = it },
+                    activeSelection = textSelection,
+                    onSelectionChange = { textSelection = it },
                     highlights = highlights,
                     isTtsActive = isTtsPlaying,
                     activeTtsSentence = currentTtsSentence
@@ -543,7 +584,6 @@ fun ReaderScreen(
             }
         }
 
-        // Warm Night Light Tint Overlay
         if (settings.nightLightWarmth > 0f) {
             Box(
                 modifier = Modifier
@@ -552,7 +592,7 @@ fun ReaderScreen(
             )
         }
 
-        // Top Reading Chrome (Auto-hiding)
+        // Top reading chrome (auto-hiding)
         AnimatedVisibility(
             visible = showChrome,
             enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
@@ -574,7 +614,11 @@ fun ReaderScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Library")
                     }
 
-                    Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                    ) {
                         Text(
                             text = book.title,
                             style = MaterialTheme.typography.titleSmall,
@@ -583,7 +627,7 @@ fun ReaderScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = currentChapter?.title ?: "Page ${pagerState.currentPage + 1}",
+                            text = currentPageTitle.ifBlank { "Page ${pagerState.currentPage + 1}" },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -591,23 +635,22 @@ fun ReaderScreen(
                         )
                     }
 
-                    // Bookmark Toggle
                     IconButton(
                         onClick = {
                             scope.launch {
                                 if (isCurrentPageBookmarked) {
-                                    val bm = bookmarks.find { it.pageIndex == pagerState.currentPage }
-                                    if (bm != null) bookRepository.removeBookmark(bm.id)
+                                    bookmarks.find { it.pageIndex == pagerState.currentPage }?.let {
+                                        bookRepository.removeBookmark(it.id)
+                                    }
                                     Toast.makeText(context, "Bookmark removed", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    val snippet = currentChapter?.formattedParagraphs?.firstOrNull()?.take(80) ?: ""
                                     bookRepository.addBookmark(
                                         Bookmark(
                                             bookId = book.id,
                                             location = "page:${pagerState.currentPage}",
                                             pageIndex = pagerState.currentPage,
-                                            chapterTitle = currentChapter?.title ?: "",
-                                            snippetText = snippet
+                                            chapterTitle = currentPageTitle,
+                                            snippetText = currentParagraphs.firstOrNull()?.take(80).orEmpty()
                                         )
                                     )
                                     Toast.makeText(context, "Page bookmarked", Toast.LENGTH_SHORT).show()
@@ -623,33 +666,41 @@ fun ReaderScreen(
                         )
                     }
 
-                    // Table of Contents
                     IconButton(onClick = { showTocSheet = true }, modifier = Modifier.testTag("toc_button")) {
-                        Icon(Icons.Default.List, contentDescription = "Table of Contents")
+                        Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = "Table of Contents")
                     }
 
-                    // Search Book
                     IconButton(onClick = { showSearchSheet = true }, modifier = Modifier.testTag("in_book_search_button")) {
                         Icon(Icons.Default.Search, contentDescription = "Search Book")
                     }
 
-                    // PDF Mode Toggle (Page Image vs Extracted Text & Selection)
                     if (isPdf) {
                         IconButton(
                             onClick = {
-                                pdfDisplayMode = if (pdfDisplayMode == PdfDisplayMode.PAGE) PdfDisplayMode.TEXT else PdfDisplayMode.PAGE
+                                pdfDisplayMode = if (pdfDisplayMode == PdfDisplayMode.PAGE) {
+                                    PdfDisplayMode.TEXT
+                                } else {
+                                    PdfDisplayMode.PAGE
+                                }
                             },
                             modifier = Modifier.testTag("pdf_mode_toggle_button")
                         ) {
                             Icon(
-                                imageVector = if (pdfDisplayMode == PdfDisplayMode.PAGE) Icons.Default.Article else Icons.Default.Description,
-                                contentDescription = if (pdfDisplayMode == PdfDisplayMode.PAGE) "Text & Cursor Selection Mode" else "Visual Page Mode",
+                                imageVector = if (pdfDisplayMode == PdfDisplayMode.PAGE) {
+                                    Icons.AutoMirrored.Filled.Article
+                                } else {
+                                    Icons.Default.Description
+                                },
+                                contentDescription = if (pdfDisplayMode == PdfDisplayMode.PAGE) {
+                                    "Reflowed text mode"
+                                } else {
+                                    "Original page mode"
+                                },
                                 tint = if (pdfDisplayMode == PdfDisplayMode.TEXT) AmberGold else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
 
-                    // Audio Narrator (TTS)
                     IconButton(onClick = { showTtsSheet = true }, modifier = Modifier.testTag("tts_button")) {
                         Icon(
                             Icons.Default.Headphones,
@@ -658,7 +709,6 @@ fun ReaderScreen(
                         )
                     }
 
-                    // Font & Appearance (Aa)
                     IconButton(onClick = { showAppearanceSheet = true }, modifier = Modifier.testTag("appearance_button")) {
                         Icon(Icons.Default.FormatSize, contentDescription = "Font & Display Settings")
                     }
@@ -666,7 +716,7 @@ fun ReaderScreen(
             }
         }
 
-        // Bottom Reading Chrome (Auto-hiding Scrubber & Stats)
+        // Bottom reading chrome (scrubber & stats)
         AnimatedVisibility(
             visible = showChrome,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -683,7 +733,6 @@ fun ReaderScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    // Location & Progress Info (tap to jump to page)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -695,14 +744,14 @@ fun ReaderScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val displayPage = (if (isDraggingSlider) sliderDragValue.toInt() else pagerState.currentPage).coerceIn(0, totalChapters - 1)
-                        val headerLabel = if (isPdf) {
-                            "Page ${displayPage + 1} of $totalChapters (Tap to Jump)"
-                        } else {
-                            "${currentChapter?.title ?: "Chapter"} (${displayPage + 1} of $totalChapters)"
-                        }
+                        val displayPage = (if (isDraggingSlider) sliderDragValue.toInt() else pagerState.currentPage)
+                            .coerceIn(0, totalChapters - 1)
                         Text(
-                            text = headerLabel,
+                            text = if (isPdf) {
+                                "Page ${displayPage + 1} of $totalChapters (tap to jump)"
+                            } else {
+                                "${currentPageTitle.ifBlank { "Chapter" }} (${displayPage + 1} of $totalChapters)"
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
@@ -718,7 +767,6 @@ fun ReaderScreen(
                         )
                     }
 
-                    // Interactive Progress Scrubber with Quick Turn Arrow Buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -753,10 +801,7 @@ fun ReaderScreen(
                                 }
                             },
                             valueRange = 0f..(totalChapters - 1).toFloat().coerceAtLeast(0f),
-                            colors = SliderDefaults.colors(
-                                thumbColor = AmberGold,
-                                activeTrackColor = AmberGold
-                            ),
+                            colors = SliderDefaults.colors(thumbColor = AmberGold, activeTrackColor = AmberGold),
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("progress_scrubber_slider")
@@ -780,9 +825,7 @@ fun ReaderScreen(
                         }
                     }
 
-                    // Estimated reading time
-                    val wordsLeft = (totalChapters - pagerState.currentPage) * 300
-                    val minutesLeft = (wordsLeft / 220).coerceAtLeast(1)
+                    val minutesLeft = ((totalChapters - pagerState.currentPage) * 300 / 220).coerceAtLeast(1)
                     Text(
                         text = "$minutesLeft min left in book",
                         fontSize = 11.sp,
@@ -793,70 +836,94 @@ fun ReaderScreen(
             }
         }
 
-        // Cursor-based Selection Floating Action Bar
+        // Selection toolbar, shared by reflowed text and the PDF page
+        val activeSelectionText = textSelection?.text ?: pdfSelection?.text
         AnimatedVisibility(
-            visible = activeCursorSelection != null,
+            visible = activeSelectionText != null,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = if (showChrome) 125.dp else 24.dp)
         ) {
-            activeCursorSelection?.let { sel ->
-                val currentCh = parsedBook?.chapters?.getOrNull(pagerState.currentPage)
-                val paraText = currentCh?.formattedParagraphs?.getOrNull(sel.paragraphIndex) ?: sel.selectedText
-                val wordsInPara = remember(paraText) {
-                    paraText.split("\\s+".toRegex()).filter { it.isNotBlank() }
-                }
+            if (activeSelectionText != null) {
+                val reflow = textSelection
+                val paragraphText = reflow?.let { currentParagraphs.getOrNull(it.paragraphIndex) }.orEmpty()
 
-                CursorSelectionFloatingBar(
-                    selection = sel,
-                    totalWordsInParagraph = wordsInPara.size,
-                    allParagraphWords = wordsInPara,
+                SelectionActionBar(
+                    selectedText = activeSelectionText,
+                    wordCount = activeSelectionText.split(Regex("\\s+")).count { it.isNotBlank() },
+                    canExtendStart = reflow != null && reflow.range.first > 0,
+                    canShrinkStart = reflow != null && reflow.range.first < reflow.range.last,
+                    canShrinkEnd = reflow != null && reflow.range.last > reflow.range.first,
+                    canExtendEnd = reflow != null && reflow.range.last < paragraphText.length - 1,
                     onNudgeStart = { delta ->
-                        val newStart = (sel.startWordIndex + delta).coerceIn(0, sel.endWordIndex)
-                        val newText = wordsInPara.subList(newStart, sel.endWordIndex + 1).joinToString(" ")
-                        activeCursorSelection = sel.copy(startWordIndex = newStart, selectedText = newText)
+                        textSelection?.let { current ->
+                            val range = TextSelectionMath.nudgeStart(paragraphText, current.range, delta)
+                            textSelection = current.copy(
+                                range = range,
+                                text = TextSelectionMath.substring(paragraphText, range)
+                            )
+                        }
                     },
                     onNudgeEnd = { delta ->
-                        val newEnd = (sel.endWordIndex + delta).coerceIn(sel.startWordIndex, (wordsInPara.size - 1).coerceAtLeast(sel.startWordIndex))
-                        val newText = wordsInPara.subList(sel.startWordIndex, newEnd + 1).joinToString(" ")
-                        activeCursorSelection = sel.copy(endWordIndex = newEnd, selectedText = newText)
+                        textSelection?.let { current ->
+                            val range = TextSelectionMath.nudgeEnd(paragraphText, current.range, delta)
+                            textSelection = current.copy(
+                                range = range,
+                                text = TextSelectionMath.substring(paragraphText, range)
+                            )
+                        }
                     },
-                    onSelectSentence = {
-                        val fullPara = wordsInPara.joinToString(" ")
-                        val sentences = fullPara.split("(?<=[.!?])\\s+".toRegex())
-                        val targetSentence = sentences.find { it.contains(sel.selectedText.take(15)) } ?: fullPara
-                        activeCursorSelection = sel.copy(selectedText = targetSentence)
+                    onSelectSentence = if (reflow != null) {
+                        {
+                            textSelection?.let { current ->
+                                TextSelectionMath.sentenceRangeAt(paragraphText, current.range.first)
+                                    ?.let { range ->
+                                        textSelection = current.copy(
+                                            range = range,
+                                            text = TextSelectionMath.substring(paragraphText, range)
+                                        )
+                                    }
+                            }
+                        }
+                    } else {
+                        null
                     },
-                    onSelectAllParagraph = {
-                        activeCursorSelection = sel.copy(
-                            startWordIndex = 0,
-                            endWordIndex = (wordsInPara.size - 1).coerceAtLeast(0),
-                            selectedText = wordsInPara.joinToString(" ")
-                        )
+                    onSelectAll = if (reflow != null && paragraphText.isNotEmpty()) {
+                        {
+                            textSelection?.let { current ->
+                                textSelection = current.copy(
+                                    range = 0..(paragraphText.length - 1),
+                                    text = paragraphText
+                                )
+                            }
+                        }
+                    } else {
+                        null
                     },
-                    onSpeak = { textToSpeak ->
-                        ttsManager.speakText(textToSpeak)
+                    onSpeak = { text ->
+                        ttsManager.speakText(text)
                         Toast.makeText(context, "Reading selection aloud", Toast.LENGTH_SHORT).show()
                     },
-                    onDefine = { word ->
-                        wordLookupResult = DictionaryLookup.getDefinition(word)
-                    },
+                    onDefine = { word -> wordLookupResult = DictionaryLookup.getDefinition(word) },
                     onHighlight = { colorHex ->
                         scope.launch {
                             bookRepository.addHighlight(
-                                Highlight(
+                                buildHighlight(
                                     bookId = bookId,
-                                    location = "p:${pagerState.currentPage}:para:${sel.paragraphIndex}",
                                     pageIndex = pagerState.currentPage,
+                                    chapterTitle = currentPageTitle,
                                     colorHex = colorHex,
-                                    selectedText = sel.selectedText,
-                                    chapterTitle = currentChapter?.title ?: ""
+                                    note = null,
+                                    textSelection = textSelection,
+                                    pdfSelection = pdfSelection,
+                                    selectedText = activeSelectionText
                                 )
                             )
                             Toast.makeText(context, "Highlight saved", Toast.LENGTH_SHORT).show()
-                            activeCursorSelection = null
+                            textSelection = null
+                            pdfSelection = null
                         }
                     },
                     onAddNote = {
@@ -864,137 +931,38 @@ fun ReaderScreen(
                         showNoteDialog = true
                     },
                     onShare = {
-                        DictionaryLookup.shareTextOrQuote(context, sel.selectedText, book?.title ?: "", book?.author ?: "")
-                        activeCursorSelection = null
+                        DictionaryLookup.shareTextOrQuote(context, activeSelectionText, book.title, book.author)
+                        textSelection = null
+                        pdfSelection = null
                     },
                     onClear = {
-                        activeCursorSelection = null
+                        textSelection = null
+                        pdfSelection = null
                     }
                 )
             }
         }
     }
 
-    // Paragraph Highlight & Lookup Action Modal
-    selectedParagraphText?.let { paragraph ->
-        AlertDialog(
-            onDismissRequest = { selectedParagraphText = null },
-            title = {
-                Text("Selected Text Action", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Column {
-                    Text(
-                        text = "“${paragraph.take(120)}...”",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Color Highlights Row
-                    Text("Highlight Color:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        val highlightColors = listOf(
-                            Pair(HighlightAmber, "#FFE082"),
-                            Pair(HighlightMint, "#A5D6A7"),
-                            Pair(HighlightSky, "#90CAF9"),
-                            Pair(HighlightRose, "#F48FB1")
-                        )
-                        highlightColors.forEach { (c, hex) ->
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(c)
-                                    .clickable {
-                                        scope.launch {
-                                            bookRepository.addHighlight(
-                                                Highlight(
-                                                    bookId = bookId,
-                                                    location = "p:${pagerState.currentPage}",
-                                                    pageIndex = pagerState.currentPage,
-                                                    colorHex = hex,
-                                                    selectedText = paragraph,
-                                                    chapterTitle = currentChapter?.title ?: ""
-                                                )
-                                            )
-                                            Toast.makeText(context, "Highlighted text", Toast.LENGTH_SHORT).show()
-                                            selectedParagraphText = null
-                                        }
-                                    }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Action buttons
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // Add Note
-                        TextButton(onClick = {
-                            activeNoteInput = ""
-                            showNoteDialog = true
-                        }) {
-                            Icon(Icons.Default.NoteAdd, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Note")
-                        }
-
-                        // Dictionary definition
-                        TextButton(onClick = {
-                            val firstWord = paragraph.split("\\s+".toRegex()).firstOrNull() ?: ""
-                            wordLookupResult = DictionaryLookup.getDefinition(firstWord)
-                        }) {
-                            Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Define")
-                        }
-
-                        // Share quote
-                        TextButton(onClick = {
-                            DictionaryLookup.shareTextOrQuote(context, paragraph, book.title, book.author)
-                            selectedParagraphText = null
-                        }) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Share")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { selectedParagraphText = null }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
     // Word definition popup
-    wordLookupResult?.let { def ->
+    wordLookupResult?.let { definition ->
         AlertDialog(
             onDismissRequest = { wordLookupResult = null },
-            title = {
-                Text(text = def.word.replaceFirstChar { it.uppercase() }, fontWeight = FontWeight.Bold)
-            },
+            title = { Text(text = definition.word.replaceFirstChar { it.uppercase() }, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text(text = def.partOfSpeech, fontSize = 12.sp, color = AmberGold, fontWeight = FontWeight.SemiBold)
+                    Text(text = definition.partOfSpeech, fontSize = 12.sp, color = AmberGold, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(text = def.definition, style = MaterialTheme.typography.bodyMedium)
-                    if (def.example != null) {
+                    Text(text = definition.definition, style = MaterialTheme.typography.bodyMedium)
+                    definition.example?.let { example ->
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Example: “${def.example}”", fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 13.sp)
+                        Text(text = "Example: “$example”", fontStyle = FontStyle.Italic, fontSize = 13.sp)
                     }
                     Spacer(modifier = Modifier.height(14.dp))
                     Row {
                         Button(
                             onClick = {
-                                DictionaryLookup.openWikipedia(context, def.word)
+                                DictionaryLookup.openWikipedia(context, definition.word)
                                 wordLookupResult = null
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
@@ -1005,7 +973,7 @@ fun ReaderScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
-                                DictionaryLookup.openWebSearch(context, def.word)
+                                DictionaryLookup.openWebSearch(context, definition.word)
                                 wordLookupResult = null
                             },
                             modifier = Modifier.weight(1f)
@@ -1016,14 +984,11 @@ fun ReaderScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { wordLookupResult = null }) {
-                    Text("Close")
-                }
+                TextButton(onClick = { wordLookupResult = null }) { Text("Close") }
             }
         )
     }
 
-    // Jump to Page Dialog (Direct quick jump for large books)
     if (showJumpToPageDialog) {
         AlertDialog(
             onDismissRequest = { showJumpToPageDialog = false },
@@ -1031,14 +996,14 @@ fun ReaderScreen(
             text = {
                 Column {
                     Text(
-                        "Enter page number between 1 and $totalChapters:",
+                        "Enter a page number between 1 and $totalChapters:",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = jumpToPageInput,
-                        onValueChange = { jumpToPageInput = it.filter { ch -> ch.isDigit() } },
+                        onValueChange = { input -> jumpToPageInput = input.filter { it.isDigit() } },
                         label = { Text("Page Number") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -1050,8 +1015,7 @@ fun ReaderScreen(
                     onClick = {
                         val enteredPage = jumpToPageInput.toIntOrNull()
                         if (enteredPage != null && enteredPage in 1..totalChapters) {
-                            val targetIndex = enteredPage - 1
-                            scope.launch { pagerState.scrollToPage(targetIndex) }
+                            scope.launch { pagerState.scrollToPage(enteredPage - 1) }
                             showJumpToPageDialog = false
                         } else {
                             Toast.makeText(context, "Please enter a valid page (1 to $totalChapters)", Toast.LENGTH_SHORT).show()
@@ -1068,43 +1032,54 @@ fun ReaderScreen(
         )
     }
 
-    // Attach Note Dialog
     if (showNoteDialog) {
+        val noteTarget = textSelection?.text ?: pdfSelection?.text ?: ""
         AlertDialog(
             onDismissRequest = { showNoteDialog = false },
             title = { Text("Attach Note to Highlight") },
             text = {
                 Column {
+                    Text(
+                        text = "“${noteTarget.take(120)}”",
+                        fontSize = 12.sp,
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = activeNoteInput,
                         onValueChange = { activeNoteInput = it },
                         placeholder = { Text("Write your reflections, thoughts, or vocabulary notes...") },
-                        modifier = Modifier.fillMaxWidth().height(120.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
                     )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        val p = selectedParagraphText ?: ""
                         scope.launch {
                             bookRepository.addHighlight(
-                                Highlight(
+                                buildHighlight(
                                     bookId = bookId,
-                                    location = "p:${pagerState.currentPage}",
                                     pageIndex = pagerState.currentPage,
+                                    chapterTitle = currentPageTitle,
                                     colorHex = "#FFE082",
-                                    selectedText = p,
                                     note = activeNoteInput,
-                                    chapterTitle = currentChapter?.title ?: ""
+                                    textSelection = textSelection,
+                                    pdfSelection = pdfSelection,
+                                    selectedText = noteTarget
                                 )
                             )
                             Toast.makeText(context, "Note attached to highlight", Toast.LENGTH_SHORT).show()
                             showNoteDialog = false
-                            selectedParagraphText = null
+                            textSelection = null
+                            pdfSelection = null
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AmberGold)
+                    colors = ButtonDefaults.buttonColors(containerColor = AmberGold),
+                    enabled = noteTarget.isNotBlank()
                 ) {
                     Text("Save Note", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
                 }
@@ -1115,7 +1090,6 @@ fun ReaderScreen(
         )
     }
 
-    // Font & Appearance BottomSheet
     if (showAppearanceSheet) {
         ModalBottomSheet(
             onDismissRequest = { showAppearanceSheet = false },
@@ -1123,14 +1097,11 @@ fun ReaderScreen(
         ) {
             AppearanceSettingsContent(
                 settings = settings,
-                onSettingsChange = { updated ->
-                    settingsRepository.updateSettings(updated)
-                }
+                onSettingsChange = { settingsRepository.updateSettings(it) }
             )
         }
     }
 
-    // Table of Contents & Bookmarks Drawer Sheet
     if (showTocSheet) {
         ModalBottomSheet(
             onDismissRequest = { showTocSheet = false },
@@ -1143,7 +1114,7 @@ fun ReaderScreen(
                 highlights = highlights,
                 onSelectChapter = { index ->
                     scope.launch {
-                        pagerState.scrollToPage(index)
+                        pagerState.scrollToPage(index.coerceIn(0, totalChapters - 1))
                         showTocSheet = false
                     }
                 },
@@ -1153,33 +1124,58 @@ fun ReaderScreen(
         }
     }
 
-    // In-Book Search Sheet
     if (showSearchSheet) {
+        val chapters = parsedBook?.chapters
         ModalBottomSheet(
             onDismissRequest = { showSearchSheet = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
             InBookSearchContent(
-                parsedBook = parsedBook,
-                onSelectMatch = { chapterIdx ->
+                search = { query ->
+                    if (isPdf) {
+                        pdfTextIndexer.search(bookId, query).map { hit ->
+                            InBookSearchResult(
+                                targetIndex = hit.pageIndex,
+                                label = "Page ${hit.pageIndex + 1} · ${hit.matchCount} match${if (hit.matchCount == 1) "" else "es"}",
+                                snippet = hit.snippet
+                            )
+                        }
+                    } else {
+                        withContext(Dispatchers.Default) {
+                            chapters.orEmpty().mapIndexedNotNull { index, chapter ->
+                                val snippet = SearchSnippets.build(chapter.plainText, query)
+                                    ?: return@mapIndexedNotNull null
+                                InBookSearchResult(
+                                    targetIndex = index,
+                                    label = chapter.title,
+                                    snippet = snippet
+                                )
+                            }
+                        }
+                    }
+                },
+                onSelectMatch = { targetIndex ->
                     scope.launch {
-                        pagerState.scrollToPage(chapterIdx)
+                        pagerState.scrollToPage(targetIndex.coerceIn(0, totalChapters - 1))
                         showSearchSheet = false
                     }
+                },
+                emptyHint = if (isPdf && openedWithoutIndex) {
+                    "Text is still being prepared for this PDF — results will improve as it finishes."
+                } else {
+                    null
                 }
             )
         }
     }
 
-    // TTS Audio Narrator Sheet
     if (showTtsSheet) {
         ModalBottomSheet(
             onDismissRequest = { showTtsSheet = false },
             sheetState = rememberModalBottomSheetState()
         ) {
-            val pageLabel = if (isPdf) "Page ${pagerState.currentPage + 1} of $totalChapters" else (currentChapter?.title ?: "Page ${pagerState.currentPage + 1}")
             TtsAudioControlsContent(
-                pageTitle = pageLabel,
+                pageTitle = currentPageTitle.ifBlank { "Page ${pagerState.currentPage + 1}" },
                 isPlaying = isTtsPlaying,
                 currentSentence = currentTtsSentence,
                 sentences = sentencesFlow,
@@ -1189,20 +1185,19 @@ fun ReaderScreen(
                     if (isTtsPlaying) {
                         ttsManager.pause()
                     } else {
-                        if (currentChapter != null && currentChapter.plainText.isNotBlank()) {
-                            ttsManager.setContent(currentChapter.plainText)
+                        if (currentPageText.isNotBlank()) {
+                            ttsManager.setContent(currentPageText)
                         }
                         ttsManager.play()
                     }
                 },
                 onPrev = { ttsManager.previousSentence() },
                 onNext = { ttsManager.nextSentence() },
-                onSelectSentence = { idx -> ttsManager.jumpToSentence(idx) },
                 onSpeedChange = { newSpeed ->
                     ttsManager.setSpeed(newSpeed)
                     settingsRepository.updateSettings(settings.copy(ttsSpeed = newSpeed))
                 },
-                onSetSleepTimer = { mins -> ttsManager.setSleepTimer(mins) },
+                onSetSleepTimer = { minutes -> ttsManager.setSleepTimer(minutes) },
                 onCancelSleepTimer = { ttsManager.cancelSleepTimer() }
             )
         }
@@ -1210,19 +1205,99 @@ fun ReaderScreen(
 }
 
 /**
- * Renders an individual chapter page with reflowable Kindle typography.
+ * Builds the highlight row for whichever kind of selection is active.
+ *
+ * A PDF highlight remembers platform character indices so it can be re-drawn over the page image;
+ * a reflowable highlight remembers the paragraph and character range inside it.
+ */
+private fun buildHighlight(
+    bookId: Long,
+    pageIndex: Int,
+    chapterTitle: String,
+    colorHex: String,
+    note: String?,
+    textSelection: TextSelection?,
+    pdfSelection: PdfSelection?,
+    selectedText: String
+): Highlight {
+    val location = when {
+        pdfSelection != null -> PdfHighlightLocation.encode(
+            pdfSelection.pageIndex,
+            pdfSelection.startChar,
+            pdfSelection.endChar
+        )
+        textSelection != null ->
+            "p:$pageIndex:para:${textSelection.paragraphIndex}:${textSelection.range.first}-${textSelection.range.last}"
+        else -> "p:$pageIndex"
+    }
+    return Highlight(
+        bookId = bookId,
+        location = location,
+        pageIndex = pageIndex,
+        colorHex = colorHex,
+        selectedText = selectedText,
+        note = note?.takeIf { it.isNotBlank() },
+        chapterTitle = chapterTitle
+    )
+}
+
+@Composable
+private fun PdfTextModeBanner(theme: ReaderTheme, onShowPage: () -> Unit) {
+    Surface(
+        color = (if (theme == ReaderTheme.OLED) Color(0xFF1E293B) else MaterialTheme.colorScheme.surfaceVariant)
+            .copy(alpha = 0.95f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Article,
+                    contentDescription = null,
+                    tint = AmberGold,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    "Reflowed text · long-press to select",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AmberGold
+                )
+            }
+            TextButton(
+                onClick = onShowPage,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Original page", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+/**
+ * A page of reflowable text: chapter of an EPUB/TXT, or the extracted text of a PDF page.
  */
 @Composable
-fun ChapterPageView(
-    chapter: com.example.data.parser.SpineChapter,
+fun ReflowPageView(
+    title: String,
+    paragraphs: List<String>,
+    emptyMessage: String,
     settings: AppSettings,
     textColor: Color,
     fontFamily: FontFamily,
     onCenterTap: () -> Unit,
     onPrevPage: () -> Unit,
     onNextPage: () -> Unit,
-    activeSelection: CursorSelectionState?,
-    onSelectionChange: (CursorSelectionState?) -> Unit,
+    activeSelection: TextSelection?,
+    onSelectionChange: (TextSelection?) -> Unit,
     highlights: List<Highlight>,
     isTtsActive: Boolean,
     activeTtsSentence: Int,
@@ -1237,12 +1312,10 @@ fun ChapterPageView(
                 detectTapGestures(
                     onTap = { offset ->
                         val width = size.width
-                        if (offset.x < width * 0.22f) {
-                            onPrevPage()
-                        } else if (offset.x > width * 0.78f) {
-                            onNextPage()
-                        } else {
-                            onCenterTap()
+                        when {
+                            offset.x < width * 0.22f -> onPrevPage()
+                            offset.x > width * 0.78f -> onNextPage()
+                            else -> onCenterTap()
                         }
                     }
                 )
@@ -1254,10 +1327,9 @@ fun ChapterPageView(
                 .fillMaxSize()
                 .verticalScroll(scrollState)
         ) {
-            // Chapter Title Heading
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = chapter.title,
+                text = title,
                 fontFamily = fontFamily,
                 fontSize = (settings.fontSizeSp + 6).sp,
                 fontWeight = FontWeight.Bold,
@@ -1268,21 +1340,24 @@ fun ChapterPageView(
                     .padding(bottom = 24.dp)
             )
 
-            // Chapter Paragraphs with Cursor Selection & TTS Highlighting
-            chapter.formattedParagraphs.forEachIndexed { pIdx, paragraph ->
-                val highlight = highlights.find { it.selectedText == paragraph || it.location.endsWith(":para:$pIdx") }
-                val isSentenceHighlighted = isTtsActive && pIdx == activeTtsSentence
+            if (paragraphs.isEmpty()) {
+                Text(
+                    text = emptyMessage,
+                    fontFamily = fontFamily,
+                    fontSize = settings.fontSizeSp.sp,
+                    color = textColor.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-                val highlightColor = highlight?.let {
-                    try {
-                        Color(android.graphics.Color.parseColor(it.colorHex))
-                    } catch (e: Exception) {
-                        AmberGold
-                    }
+            paragraphs.forEachIndexed { paragraphIndex, paragraph ->
+                val highlight = highlights.find {
+                    it.selectedText == paragraph || it.location.contains(":para:$paragraphIndex:")
                 }
 
-                SelectableParagraphWithCursors(
-                    paragraphIndex = pIdx,
+                SelectableParagraph(
+                    paragraphIndex = paragraphIndex,
                     text = paragraph,
                     fontSize = settings.fontSizeSp.sp,
                     lineHeight = (settings.fontSizeSp * settings.lineSpacingMultiplier).sp,
@@ -1291,12 +1366,11 @@ fun ChapterPageView(
                     textAlign = if (settings.textAlignJustify) TextAlign.Justify else TextAlign.Start,
                     activeSelection = activeSelection,
                     onSelectionChange = onSelectionChange,
-                    highlightColor = highlightColor,
-                    isTtsSentenceActive = isSentenceHighlighted
+                    highlightColor = highlight?.let { parseHighlightColor(it.colorHex) },
+                    isTtsSentenceActive = isTtsActive && paragraphIndex == activeTtsSentence
                 )
 
-                // If note attached, show subtle badge
-                if (highlight?.note != null) {
+                highlight?.note?.let { note ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(start = 6.dp, top = 2.dp, bottom = 6.dp)
@@ -1309,9 +1383,9 @@ fun ChapterPageView(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = highlight.note,
+                            text = note,
                             fontSize = 11.sp,
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                            fontStyle = FontStyle.Italic,
                             color = textColor.copy(alpha = 0.75f)
                         )
                     }
@@ -1323,7 +1397,7 @@ fun ChapterPageView(
 }
 
 /**
- * Continuous Vertical Scroll Reader Mode
+ * Continuous vertical scroll mode for reflowable books.
  */
 @Composable
 fun ContinuousScrollView(
@@ -1332,8 +1406,8 @@ fun ContinuousScrollView(
     textColor: Color,
     fontFamily: FontFamily,
     onCenterTap: () -> Unit,
-    activeSelection: CursorSelectionState?,
-    onSelectionChange: (CursorSelectionState?) -> Unit,
+    activeSelection: TextSelection?,
+    onSelectionChange: (TextSelection?) -> Unit,
     highlights: List<Highlight>,
     isTtsActive: Boolean = false,
     activeTtsSentence: Int = -1
@@ -1350,7 +1424,7 @@ fun ContinuousScrollView(
             .padding(horizontal = settings.marginPaddingDp.dp)
     ) {
         val chapters = parsedBook?.chapters ?: emptyList()
-        itemsIndexed(chapters) { chIdx, chapter ->
+        itemsIndexed(chapters) { chapterIndex, chapter ->
             Spacer(modifier = Modifier.height(32.dp))
             Text(
                 text = chapter.title,
@@ -1359,23 +1433,18 @@ fun ContinuousScrollView(
                 fontWeight = FontWeight.Bold,
                 color = textColor,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
             )
 
-            chapter.formattedParagraphs.forEachIndexed { pIdx, paragraph ->
-                val highlight = highlights.find { it.selectedText == paragraph || it.location.contains("ch:$chIdx:para:$pIdx") }
-                val isSentenceHighlighted = isTtsActive && pIdx == activeTtsSentence
-
-                val highlightColor = highlight?.let {
-                    try {
-                        Color(android.graphics.Color.parseColor(it.colorHex))
-                    } catch (e: Exception) {
-                        AmberGold
-                    }
+            chapter.formattedParagraphs.forEachIndexed { paragraphIndex, paragraph ->
+                val highlight = highlights.find {
+                    it.selectedText == paragraph || it.location.contains("ch:$chapterIndex:para:$paragraphIndex")
                 }
 
-                SelectableParagraphWithCursors(
-                    paragraphIndex = pIdx,
+                SelectableParagraph(
+                    paragraphIndex = paragraphIndex,
                     text = paragraph,
                     fontSize = settings.fontSizeSp.sp,
                     lineHeight = (settings.fontSizeSp * settings.lineSpacingMultiplier).sp,
@@ -1384,889 +1453,11 @@ fun ContinuousScrollView(
                     textAlign = if (settings.textAlignJustify) TextAlign.Justify else TextAlign.Start,
                     activeSelection = activeSelection,
                     onSelectionChange = onSelectionChange,
-                    highlightColor = highlightColor,
-                    isTtsSentenceActive = isSentenceHighlighted
+                    highlightColor = highlight?.let { parseHighlightColor(it.colorHex) },
+                    isTtsSentenceActive = isTtsActive && paragraphIndex == activeTtsSentence
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
-    }
-}
-
-/**
- * Individual high-fidelity PDF page view supporting pinch-to-zoom, pan, tap page turns,
- * and double-tap zoom.
- */
-@Composable
-fun PdfSinglePageView(
-    pageIndex: Int,
-    pdfRenderer: PdfBookParser.PdfDocumentRenderer?,
-    theme: ReaderTheme,
-    onCenterTap: () -> Unit,
-    onPrevPage: () -> Unit,
-    onNextPage: () -> Unit,
-    onOpenTextMode: () -> Unit = {},
-    onStartTts: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
-    var pageBitmap by remember(pageIndex, pdfRenderer) { mutableStateOf<Bitmap?>(null) }
-    var isLoadingPage by remember(pageIndex, pdfRenderer) { mutableStateOf(true) }
-    var scale by remember(pageIndex) { mutableFloatStateOf(1f) }
-    var offset by remember(pageIndex) { mutableStateOf(Offset.Zero) }
-
-    LaunchedEffect(pageIndex, pdfRenderer) {
-        if (pdfRenderer == null) {
-            isLoadingPage = true
-            return@LaunchedEffect
-        }
-        isLoadingPage = true
-        withContext(Dispatchers.IO) {
-            val bmp = pdfRenderer.renderPage(pageIndex, targetWidth = 960)
-            withContext(Dispatchers.Main) {
-                pageBitmap = bmp
-                isLoadingPage = false
-            }
-        }
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .pointerInput(pageIndex, scale) {
-                detectTapGestures(
-                    onDoubleTap = {
-                        if (scale > 1.2f) {
-                            scale = 1f
-                            offset = Offset.Zero
-                        } else {
-                            scale = 2.2f
-                        }
-                    },
-                    onTap = { tapOffset ->
-                        if (scale > 1.05f) {
-                            onCenterTap()
-                        } else {
-                            val width = size.width
-                            when {
-                                tapOffset.x < width * 0.22f -> onPrevPage()
-                                tapOffset.x > width * 0.78f -> onNextPage()
-                                else -> onCenterTap()
-                            }
-                        }
-                    }
-                )
-            }
-            .then(
-                if (scale > 1.05f) {
-                    Modifier.pointerInput(pageIndex) {
-                        detectTransformGestures { _, pan, zoom, _ ->
-                            val newScale = (scale * zoom).coerceIn(1f, 3.5f)
-                            scale = newScale
-                            if (newScale <= 1.05f) {
-                                offset = Offset.Zero
-                            } else {
-                                offset = Offset(offset.x + pan.x, offset.y + pan.y)
-                            }
-                        }
-                    }
-                } else Modifier
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        if (pageBitmap != null) {
-            Image(
-                bitmap = pageBitmap!!.asImageBitmap(),
-                contentDescription = "PDF Page ${pageIndex + 1}",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = offset.x
-                        translationY = offset.y
-                    }
-            )
-        } else if (isLoadingPage) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                CircularProgressIndicator(color = AmberGold, modifier = Modifier.size(36.dp))
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Rendering Page ${pageIndex + 1}...",
-                    fontSize = 12.sp,
-                    color = Color(theme.textHex).copy(alpha = 0.7f)
-                )
-            }
-        } else {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(24.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Description,
-                    contentDescription = null,
-                    tint = AmberGold,
-                    modifier = Modifier.size(44.dp)
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "Page ${pageIndex + 1}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color(theme.textHex)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Visual rendering unavailable for this page. You can read the full text content in Text Mode.",
-                    fontSize = 13.sp,
-                    color = Color(theme.textHex).copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onOpenTextMode,
-                    colors = ButtonDefaults.buttonColors(containerColor = AmberGold)
-                ) {
-                    Icon(Icons.Default.Article, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Black)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Read in Text & TTS Mode", color = Color.Black, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        // Floating pill for PDF quick actions: Listen (TTS) & Cursor Selection
-        if (scale <= 1.05f) {
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = (if (theme == ReaderTheme.OLED) Color(0xFF1E293B) else MaterialTheme.colorScheme.surface).copy(alpha = 0.95f),
-                tonalElevation = 6.dp,
-                shadowElevation = 8.dp,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 20.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { onStartTts() }
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Headphones,
-                            contentDescription = null,
-                            tint = AmberGold,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Read Aloud", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AmberGold)
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(1.dp, 16.dp)
-                            .background(Color.Gray.copy(alpha = 0.4f))
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { onOpenTextMode() }
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Article,
-                            contentDescription = null,
-                            tint = AmberGold,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Select Text", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Continuous vertical scroll viewer for PDF documents.
- */
-@Composable
-fun PdfContinuousScrollView(
-    pdfRenderer: PdfBookParser.PdfDocumentRenderer?,
-    totalPages: Int,
-    initialPage: Int,
-    theme: ReaderTheme,
-    onPageVisible: (Int) -> Unit,
-    onCenterTap: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialPage)
-
-    LaunchedEffect(listState.firstVisibleItemIndex) {
-        onPageVisible(listState.firstVisibleItemIndex)
-    }
-
-    LazyColumn(
-        state = listState,
-        modifier = modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = { onCenterTap() })
-            },
-        contentPadding = PaddingValues(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        items(totalPages) { pageIndex ->
-            PdfContinuousPageCard(
-                pageIndex = pageIndex,
-                pdfRenderer = pdfRenderer,
-                theme = theme,
-                onCenterTap = onCenterTap
-            )
-        }
-    }
-}
-
-/**
- * Single page item inside continuous scroll.
- */
-@Composable
-fun PdfContinuousPageCard(
-    pageIndex: Int,
-    pdfRenderer: PdfBookParser.PdfDocumentRenderer?,
-    theme: ReaderTheme,
-    onCenterTap: () -> Unit
-) {
-    var pageBitmap by remember(pageIndex, pdfRenderer) { mutableStateOf<Bitmap?>(null) }
-    var isLoadingPage by remember(pageIndex, pdfRenderer) { mutableStateOf(true) }
-
-    LaunchedEffect(pageIndex, pdfRenderer) {
-        isLoadingPage = true
-        withContext(Dispatchers.IO) {
-            val bmp = pdfRenderer?.renderPage(pageIndex, targetWidth = 840)
-            withContext(Dispatchers.Main) {
-                pageBitmap = bmp
-                isLoadingPage = false
-            }
-        }
-    }
-
-    Card(
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (theme == ReaderTheme.OLED) Color.Black else Color.White
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp)
-            .clickable { onCenterTap() }
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (pageBitmap != null) {
-                Image(
-                    bitmap = pageBitmap!!.asImageBitmap(),
-                    contentDescription = "PDF Page ${pageIndex + 1}",
-                    contentScale = ContentScale.FillWidth,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else if (isLoadingPage) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(320.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = AmberGold, modifier = Modifier.size(32.dp))
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Error loading page ${pageIndex + 1}")
-                }
-            }
-
-            Text(
-                text = "Page ${pageIndex + 1}",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.Gray,
-                modifier = Modifier.padding(vertical = 6.dp)
-            )
-        }
-    }
-}
-
-/**
- * Font & Appearance Settings Sheet (Kindle 'Aa' Menu)
- */
-@Composable
-fun AppearanceSettingsContent(
-    settings: AppSettings,
-    onSettingsChange: (AppSettings) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 12.dp)
-    ) {
-        Text("Display & Reading Style", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Themes Row (Light, Sepia, Night, OLED)
-        Text("Theme", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            ReaderTheme.values().forEach { theme ->
-                val isSelected = settings.theme == theme
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(theme.bgHex))
-                        .border(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) AmberGold else Color.Gray.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable { onSettingsChange(settings.copy(theme = theme)) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = theme.title,
-                        color = Color(theme.textHex),
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Font Family Selector
-        Text("Font Family", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ReaderFont.values().forEach { font ->
-                val isSelected = settings.fontFamily == font
-                FilterChip(
-                    selected = isSelected,
-                    onClick = { onSettingsChange(settings.copy(fontFamily = font)) },
-                    label = { Text(font.displayName, fontSize = 11.sp) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Font Size Stepper
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Font Size", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = {
-                        if (settings.fontSizeSp > 12f) {
-                            onSettingsChange(settings.copy(fontSizeSp = settings.fontSizeSp - 2f))
-                        }
-                    },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Text("A-", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
-                Text(
-                    text = "${settings.fontSizeSp.toInt()} sp",
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-                IconButton(
-                    onClick = {
-                        if (settings.fontSizeSp < 32f) {
-                            onSettingsChange(settings.copy(fontSizeSp = settings.fontSizeSp + 2f))
-                        }
-                    },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Text("A+", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Line Spacing
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Line Spacing", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-            Row {
-                listOf(1.2f, 1.4f, 1.8f).forEach { spacing ->
-                    val isSelected = (settings.lineSpacingMultiplier - spacing).let { kotlin.math.abs(it) < 0.05f }
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { onSettingsChange(settings.copy(lineSpacingMultiplier = spacing)) },
-                        label = { Text("${spacing}x", fontSize = 11.sp) },
-                        modifier = Modifier.padding(horizontal = 2.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Margins
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Margins", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-            Row {
-                listOf(Pair(12, "Narrow"), Pair(20, "Normal"), Pair(32, "Wide")).forEach { (m, name) ->
-                    FilterChip(
-                        selected = settings.marginPaddingDp == m,
-                        onClick = { onSettingsChange(settings.copy(marginPaddingDp = m)) },
-                        label = { Text(name, fontSize = 11.sp) },
-                        modifier = Modifier.padding(horizontal = 2.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Night Light Warmth Slider
-        Text("Warm Night Light", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-        Slider(
-            value = settings.nightLightWarmth,
-            onValueChange = { onSettingsChange(settings.copy(nightLightWarmth = it)) },
-            valueRange = 0.0f..0.6f,
-            colors = SliderDefaults.colors(thumbColor = AmberGold, activeTrackColor = AmberGold)
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-    }
-}
-
-/**
- * Table of Contents & Bookmarks Drawer
- */
-@Composable
-fun TableOfContentsContent(
-    parsedBook: ParsedBook?,
-    currentPage: Int,
-    bookmarks: List<Bookmark>,
-    highlights: List<Highlight>,
-    onSelectChapter: (Int) -> Unit,
-    onDeleteBookmark: (Long) -> Unit,
-    onDeleteHighlight: (Long) -> Unit
-) {
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Chapters, 1: Bookmarks, 2: Notes
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(0.75f)
-            .padding(horizontal = 16.dp)
-    ) {
-        TabRow(
-            selectedTabIndex = selectedTab,
-            contentColor = AmberGold
-        ) {
-            Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Chapters") })
-            Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Bookmarks (${bookmarks.size})") })
-            Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("Notes (${highlights.size})") })
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        when (selectedTab) {
-            0 -> {
-                // Chapters
-                val toc = parsedBook?.tableOfContents ?: emptyList()
-                if (toc.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No chapters detected")
-                    }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        itemsIndexed(toc) { idx, item ->
-                            val isCurrent = idx == currentPage
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onSelectChapter(item.targetIndex) }
-                                    .padding(vertical = 12.dp, horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = item.title,
-                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isCurrent) AmberGold else MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                if (isCurrent) {
-                                    Text("Reading", fontSize = 11.sp, color = AmberGold, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            1 -> {
-                // Bookmarks
-                if (bookmarks.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No bookmarks added yet")
-                    }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        itemsIndexed(bookmarks) { _, bm ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onSelectChapter(bm.pageIndex) }
-                                    .padding(vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Bookmark, contentDescription = null, tint = AmberGold)
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = bm.chapterTitle.ifEmpty { "Page ${bm.pageIndex + 1}" }, fontWeight = FontWeight.Bold)
-                                    if (bm.snippetText.isNotBlank()) {
-                                        Text(text = bm.snippetText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                }
-                                IconButton(onClick = { onDeleteBookmark(bm.id) }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Delete", modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            2 -> {
-                // Notes & Highlights
-                if (highlights.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No highlights or notes yet")
-                    }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        itemsIndexed(highlights) { _, hl ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clickable { onSelectChapter(hl.pageIndex) },
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(10.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(android.graphics.Color.parseColor(hl.colorHex)))
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(text = hl.chapterTitle, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AmberGold)
-                                        Spacer(modifier = Modifier.weight(1f))
-                                        IconButton(onClick = { onDeleteHighlight(hl.id) }, modifier = Modifier.size(24.dp)) {
-                                            Icon(Icons.Default.Close, contentDescription = "Delete", modifier = Modifier.size(16.dp))
-                                        }
-                                    }
-                                    Text(text = "“${hl.selectedText.take(100)}”", fontSize = 12.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
-                                    if (!hl.note.isNullOrBlank()) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(text = "Note: ${hl.note}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Full-Text In-Book Search Sheet
- */
-@Composable
-fun InBookSearchContent(
-    parsedBook: ParsedBook?,
-    onSelectMatch: (Int) -> Unit
-) {
-    var query by remember { mutableStateOf("") }
-    val chapters = parsedBook?.chapters ?: emptyList()
-
-    val matches = remember(query, chapters) {
-        if (query.length < 2) emptyList()
-        else {
-            val list = mutableListOf<Triple<Int, String, String>>() // ChapterIdx, ChapterTitle, Snippet
-            chapters.forEachIndexed { idx, ch ->
-                val text = ch.plainText
-                var startIndex = 0
-                while (startIndex < text.length) {
-                    val found = text.indexOf(query, startIndex, ignoreCase = true)
-                    if (found != -1) {
-                        val snippetStart = (found - 30).coerceAtLeast(0)
-                        val snippetEnd = (found + query.length + 50).coerceAtMost(text.length)
-                        val snippet = "..." + text.substring(snippetStart, snippetEnd).replace("\n", " ") + "..."
-                        list.add(Triple(idx, ch.title, snippet))
-                        startIndex = found + query.length
-                        if (list.size > 50) break // limit matches
-                    } else break
-                }
-            }
-            list
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(0.75f)
-            .padding(16.dp)
-    ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = { Text("Search word or passage in book...") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { query = "" }) {
-                        Icon(Icons.Default.Close, contentDescription = "Clear")
-                    }
-                }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-        Text("${matches.size} matches found", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            itemsIndexed(matches) { _, match ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .clickable { onSelectMatch(match.first) },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
-                        Text(match.second, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AmberGold)
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(match.third, fontSize = 13.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Text-to-Speech Audio Controls Sheet
- */
-@Composable
-fun TtsAudioControlsContent(
-    pageTitle: String,
-    isPlaying: Boolean,
-    currentSentence: Int,
-    sentences: List<String>,
-    sleepTimerMins: Int?,
-    speed: Float,
-    onPlayPause: () -> Unit,
-    onPrev: () -> Unit,
-    onNext: () -> Unit,
-    onSelectSentence: (Int) -> Unit,
-    onSpeedChange: (Float) -> Unit,
-    onSetSleepTimer: (Int) -> Unit,
-    onCancelSleepTimer: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Headphones, contentDescription = null, tint = AmberGold)
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text("Voice Narration (TTS)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(pageTitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            if (isPlaying) {
-                Surface(
-                    color = AmberGold.copy(alpha = 0.18f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        "Reading...",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AmberGold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Currently playing sentence preview
-        val activeText = sentences.getOrNull(currentSentence) ?: if (sentences.isNotEmpty()) sentences.first() else "No text found on this page."
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text(
-                    text = if (sentences.isNotEmpty()) "Sentence ${currentSentence + 1} of ${sentences.size}" else "Text Preview",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AmberGold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "“$activeText”",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Playback Controls Row
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            IconButton(
-                onClick = onPrev,
-                enabled = currentSentence > 0,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(Icons.Default.SkipPrevious, contentDescription = "Previous sentence", modifier = Modifier.size(32.dp))
-            }
-
-            Spacer(modifier = Modifier.width(20.dp))
-
-            Surface(
-                shape = CircleShape,
-                color = AmberGold,
-                modifier = Modifier
-                    .size(64.dp)
-                    .clickable { onPlayPause() }
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = Color(0xFF0F172A),
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(20.dp))
-
-            IconButton(
-                onClick = onNext,
-                enabled = sentences.isNotEmpty() && currentSentence < sentences.size - 1,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(Icons.Default.SkipNext, contentDescription = "Next sentence", modifier = Modifier.size(32.dp))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Speed Stepper
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Speed: ", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.width(4.dp))
-            listOf(0.75f, 1.0f, 1.25f, 1.5f).forEach { s ->
-                FilterChip(
-                    selected = (speed - s).let { kotlin.math.abs(it) < 0.05f },
-                    onClick = { onSpeedChange(s) },
-                    label = { Text("${s}x", fontSize = 11.sp) },
-                    modifier = Modifier.padding(horizontal = 2.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Sleep Timer
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Timer, contentDescription = null, tint = AmberGold, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = if (sleepTimerMins != null) "Sleep Timer: $sleepTimerMins min left" else "Sleep Timer: Off",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            if (sleepTimerMins != null) {
-                TextButton(onClick = onCancelSleepTimer) { Text("Cancel", fontSize = 11.sp) }
-            } else {
-                TextButton(onClick = { onSetSleepTimer(15) }) { Text("15m", fontSize = 11.sp) }
-                TextButton(onClick = { onSetSleepTimer(30) }) { Text("30m", fontSize = 11.sp) }
-                TextButton(onClick = { onSetSleepTimer(45) }) { Text("45m", fontSize = 11.sp) }
-            }
-        }
-        Spacer(modifier = Modifier.height(12.dp))
     }
 }

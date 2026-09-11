@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.parser.PdfBookParser
 import com.example.data.parser.PdfTextExtractor
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -13,53 +12,79 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
 
+/**
+ * Exercises the PDF pipeline against the PDFs bundled in `assets/sample_books`.
+ *
+ * The previous version of this test read from `/tmp/test_download.pdf`, so it passed only on the
+ * machine where those files happened to exist and failed for everyone else, CI included.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PdfLoadTest {
 
-    @Test
-    fun testParseSmallPdf() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val file = File("/tmp/test_download.pdf")
-        assertTrue("Test file exists", file.exists())
+    private val context: Context get() = ApplicationProvider.getApplicationContext()
 
-        println("Testing PdfTextExtractor on small PDF...")
-        try {
-            val pages = PdfTextExtractor.extractPages(context, Uri.fromFile(file), 1)
-            println("Extracted ${pages.size} pages from small PDF. Page 1 text: ${pages.firstOrNull()?.text?.take(100)}")
-        } catch (t: Throwable) {
-            println("ExtractPages failed: ${t.javaClass.name}: ${t.message}")
-            t.printStackTrace()
+    private fun asset(name: String): File {
+        val target = File(context.cacheDir, name)
+        if (!target.exists() || target.length() == 0L) {
+            context.assets.open("sample_books/$name").use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            }
         }
+        return target
     }
 
     @Test
-    fun testParseTracemonkeyPdf() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val file = File("/tmp/tracemonkey.pdf")
-        assertTrue("Test file exists", file.exists())
+    fun `legacy extractor returns one entry per page`() {
+        val file = asset("quick_guide.pdf")
+        val pages = PdfTextExtractor.extractPages(context, Uri.fromFile(file), pageCount = 2)
 
-        println("Testing PdfTextExtractor on tracemonkey PDF (1MB)...")
-        try {
-            val pages = PdfTextExtractor.extractPages(context, Uri.fromFile(file), 14)
-            println("Extracted ${pages.size} pages from tracemonkey. Page 1 text: ${pages.firstOrNull()?.text?.take(100)}")
-        } catch (t: Throwable) {
-            println("ExtractPages failed on tracemonkey: ${t.javaClass.name}: ${t.message}")
-            t.printStackTrace()
-        }
+        assertTrue("Expected an entry per page", pages.size == 2)
+        println("quick_guide page 1: ${pages.first().text.take(160)}")
     }
 
     @Test
-    fun testPdfDocumentRenderer() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val file = File("/tmp/test_download.pdf")
-        val parsed = PdfBookParser.parse(context, Uri.fromFile(file), "Downloaded Test PDF")
-        println("Parsed title: ${parsed.title}, chapters: ${parsed.chapters.size}, totalPages: ${parsed.totalPagesEstimate}")
-        assertTrue("Parsed should have at least 1 chapter", parsed.chapters.isNotEmpty())
+    fun `legacy extractor stays within its page budget`() {
+        val file = asset("tracemonkey.pdf")
+        val pages = PdfTextExtractor.extractPages(
+            context = context,
+            uri = Uri.fromFile(file),
+            pageCount = 14,
+            maxPages = 4,
+            maxFileSizeBytes = 12L * 1024 * 1024
+        )
 
-        // Ensure createRenderer does not crash even if native libpdfium is absent on JVM Robolectric
+        // Over the page budget the parser must degrade to empty text, never to a fabricated
+        // "Page 3 of 14" string that would later be narrated or indexed as if it were content.
+        assertTrue("Expected placeholder-free output", pages.all { it.text.isEmpty() })
+        assertTrue(pages.size == 14)
+    }
+
+    @Test
+    fun `extracted text is never a fabricated placeholder`() {
+        val file = asset("tracemonkey.pdf")
+        val pages = PdfTextExtractor.extractPages(
+            context = context,
+            uri = Uri.fromFile(file),
+            pageCount = 14,
+            maxPages = 30,
+            maxFileSizeBytes = 12L * 1024 * 1024
+        )
+
+        assertTrue(pages.none { it.text.startsWith("Page ") && it.text.contains(" of 14") })
+        println("tracemonkey page 1: ${pages.firstOrNull()?.text?.take(200)}")
+    }
+
+    @Test
+    fun `parse reports a page count and never throws without native pdf support`() {
+        val file = asset("quick_guide.pdf")
+        val parsed = PdfBookParser.parse(context, Uri.fromFile(file), "Quick Guide")
+
+        println("Parsed '${parsed.title}', pages=${parsed.totalPagesEstimate}, toc=${parsed.tableOfContents.size}")
+        assertTrue("Table of contents has one entry per page", parsed.tableOfContents.isNotEmpty())
+
+        // Robolectric has no pdfium, so createRenderer must fail softly rather than crash.
         val renderer = PdfBookParser.createRenderer(context, Uri.fromFile(file))
-        println("Renderer created: $renderer, pageCount: ${renderer?.pageCount}")
         renderer?.close()
     }
 }
