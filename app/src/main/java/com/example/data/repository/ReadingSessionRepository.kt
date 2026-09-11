@@ -3,10 +3,12 @@ package com.example.data.repository
 import android.content.Context
 import com.example.data.local.AppDatabase
 import com.example.data.model.ReadingSession
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 data class ReadingStats(
     val totalTimeMinutes: Int,
@@ -30,29 +32,51 @@ class ReadingSessionRepository(context: Context) {
     private val sessionDao = db.readingSessionDao()
     private val bookDao = db.bookDao()
 
+    /**
+     * Sessions end exactly when the reader screen leaves the composition, so the write
+     * cannot be tied to that screen's `rememberCoroutineScope` -- it is cancelled at the
+     * same instant. This repository-owned scope outlives any single screen.
+     */
+    private val writeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private var currentSessionStartTime: Long = 0L
     private var currentBookId: Long = 0L
+    private var startPageIndex: Int = 0
 
-    fun startSession(bookId: Long) {
+    fun startSession(bookId: Long, startPage: Int = 0) {
         currentBookId = bookId
+        startPageIndex = startPage
         currentSessionStartTime = System.currentTimeMillis()
     }
 
-    suspend fun stopSession(pagesRead: Int = 1) = withContext(Dispatchers.IO) {
-        if (currentSessionStartTime > 0 && currentBookId > 0) {
-            val endTime = System.currentTimeMillis()
-            val durationMs = endTime - currentSessionStartTime
-            if (durationMs > 10_000) { // Only record if read for at least 10 seconds
-                val session = ReadingSession(
-                    bookId = currentBookId,
-                    startTime = currentSessionStartTime,
+    /**
+     * Records the finished session. [endPage] is the page the reader left off on; pages
+     * read is derived from how far they actually travelled rather than the hard-coded
+     * `1` the previous implementation always passed, which made the "pages read"
+     * statistic count visits instead of pages.
+     */
+    fun stopSession(endPage: Int) {
+        val startedAt = currentSessionStartTime
+        val bookId = currentBookId
+        val pagesRead = (endPage - startPageIndex).coerceAtLeast(0) + 1
+
+        currentSessionStartTime = 0L
+        currentBookId = 0L
+        startPageIndex = 0
+
+        if (startedAt <= 0L || bookId <= 0L) return
+        val endTime = System.currentTimeMillis()
+        if (endTime - startedAt <= 10_000) return // ignore incidental taps into a book
+
+        writeScope.launch {
+            sessionDao.insertSession(
+                ReadingSession(
+                    bookId = bookId,
+                    startTime = startedAt,
                     endTime = endTime,
-                    pagesRead = pagesRead.coerceAtLeast(1)
+                    pagesRead = pagesRead
                 )
-                sessionDao.insertSession(session)
-            }
-            currentSessionStartTime = 0L
-            currentBookId = 0L
+            )
         }
     }
 
