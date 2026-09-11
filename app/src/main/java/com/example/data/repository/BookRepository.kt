@@ -27,6 +27,13 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.security.MessageDigest
 
+/** A book that has been opened and verified, with what the reader needs to know. */
+data class PreparedBook(
+    val book: Book,
+    val pageCount: Int,
+    val hasTextLayer: Boolean
+)
+
 class BookRepository(private val context: Context) {
 
     private val db = AppDatabase.getDatabase(context)
@@ -35,8 +42,23 @@ class BookRepository(private val context: Context) {
     private val highlightDao = db.highlightDao()
     private val collectionDao = db.collectionDao()
 
-    // In-memory cache of loaded book content for fast reader rendering
-    private val parsedBookCache = mutableMapOf<Long, ParsedBook>()
+    /**
+     * Parsed content cache.
+     *
+     * Was a plain `mutableMapOf`, mutated from several coroutines and never evicted --
+     * so it both risked concurrent modification and retained every book's full text plus
+     * its cover [Bitmap] for the life of the process. A bounded, concurrent cache keeps
+     * the hot book fast without the leak.
+     */
+    private val parsedBookCache = object : LinkedHashMap<Long, ParsedBook>(8, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, ParsedBook>) = size > 4
+    }
+
+    private fun cachedBook(id: Long): ParsedBook? = synchronized(parsedBookCache) { parsedBookCache[id] }
+
+    private fun cacheBook(id: Long, parsed: ParsedBook) {
+        synchronized(parsedBookCache) { parsedBookCache[id] = parsed }
+    }
 
     val allBooks: Flow<List<Book>> = bookDao.getAllBooks()
     val allCollections: Flow<List<Collection>> = collectionDao.getAllCollections()
@@ -49,7 +71,7 @@ class BookRepository(private val context: Context) {
             val samples = SampleBooks.seedDefaultBooks(context)
             for (pair in samples) {
                 val insertedId = bookDao.insertBook(pair.first)
-                parsedBookCache[insertedId] = pair.second
+                cacheBook(insertedId, pair.second)
             }
         }
     }
@@ -61,7 +83,7 @@ class BookRepository(private val context: Context) {
     }
 
     suspend fun loadBookContent(book: Book): ParsedBook = withContext(Dispatchers.IO) {
-        parsedBookCache[book.id]?.let { return@withContext it }
+        cachedBook(book.id)?.let { return@withContext it }
 
         val uri = Uri.parse(book.filePath)
         val parsed = when (book.format.uppercase()) {
@@ -89,8 +111,65 @@ class BookRepository(private val context: Context) {
                 EpubParser.parse(context, uri)
             }
         }
-        parsedBookCache[book.id] = parsed
+        cacheBook(book.id, parsed)
         parsed
+    }
+
+    /**
+     * Gets a book ready to be displayed, *before* the reader screen is shown.
+     *
+     * Previously the reader itself did this work: you tapped a book, landed on an empty
+     * page, and watched "Loading book pages..." while the file was opened, the page count
+     * read and the text extracted. For a large PDF that meant several seconds of blank
+     * screen inside the reader, and if the file turned out to be unopenable you were
+     * already stranded there with a spinner.
+     *
+     * Doing it here means the library can show progress, report a failure in place, and
+     * only navigate once the document is genuinely ready.
+     */
+    suspend fun prepareBook(book: Book): Result<PreparedBook> = withContext(Dispatchers.IO) {
+        try {
+            val parsed = loadBookContent(book)
+
+            if (book.format.equals("PDF", ignoreCase = true)) {
+                val renderer = PdfBookParser.createRenderer(context, Uri.parse(book.filePath))
+                    ?: return@withContext Result.failure(
+                        IllegalStateException(
+                            "This PDF could not be opened. It may be corrupt, password " +
+                                "protected, or no longer at its original location."
+                        )
+                    )
+                renderer.use { session ->
+                    // Warm the first page's text and image so the reader opens onto
+                    // content rather than a spinner.
+                    val firstPageText = session.pageText(0)
+                    session.renderPage(0, targetWidth = 1080)
+                    return@withContext Result.success(
+                        PreparedBook(
+                            book = book,
+                            pageCount = session.pageCount,
+                            hasTextLayer = firstPageText.hasText
+                        )
+                    )
+                }
+            }
+
+            if (parsed.chapters.isEmpty()) {
+                return@withContext Result.failure(
+                    IllegalStateException("No readable content was found in this book.")
+                )
+            }
+
+            Result.success(
+                PreparedBook(
+                    book = book,
+                    pageCount = parsed.chapters.size,
+                    hasTextLayer = true
+                )
+            )
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
     }
 
     suspend fun importBookFromUri(uri: Uri, displayName: String? = null): Result<Book> = withContext(Dispatchers.IO) {
@@ -179,7 +258,7 @@ class BookRepository(private val context: Context) {
 
             val newId = bookDao.insertBook(book)
             val insertedBook = book.copy(id = newId)
-            parsedBookCache[newId] = parsed
+            cacheBook(newId, parsed)
             Result.success(insertedBook)
         } catch (e: Exception) {
             Result.failure(e)
@@ -209,7 +288,7 @@ class BookRepository(private val context: Context) {
 
     suspend fun deleteBook(book: Book) = withContext(Dispatchers.IO) {
         bookDao.deleteBook(book)
-        parsedBookCache.remove(book.id)
+        synchronized(parsedBookCache) { parsedBookCache.remove(book.id) }
         book.coverPath?.let { path ->
             val file = File(path)
             if (file.exists()) file.delete()
@@ -279,21 +358,23 @@ class BookRepository(private val context: Context) {
 
     private fun computeUriHash(uri: Uri): String {
         return try {
-            val md = MessageDigest.getInstance("MD5")
+            val md = MessageDigest.getInstance("SHA-256")
             val stream: InputStream? = if (uri.scheme == "file") {
                 File(uri.path ?: "").inputStream()
             } else {
                 context.contentResolver.openInputStream(uri)
             }
+            // The previous version hashed only the first 64 KB. Two different books
+            // produced from the same template share that prefix, and because `fileHash`
+            // carries a UNIQUE index the second import was rejected as "already in your
+            // library". Hashing the whole file makes the identity check honest; a book
+            // is a few megabytes, so this costs milliseconds.
             stream?.use { input ->
-                val buffer = ByteArray(8192)
-                var bytesRead = input.read(buffer)
-                var count = 0
-                // Hash first 64KB for speed and uniqueness
-                while (bytesRead != -1 && count < 65536) {
-                    md.update(buffer, 0, bytesRead)
-                    count += bytesRead
-                    bytesRead = input.read(buffer)
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read == -1) break
+                    md.update(buffer, 0, read)
                 }
             }
             md.digest().joinToString("") { "%02x".format(it) }
