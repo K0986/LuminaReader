@@ -31,12 +31,18 @@ jobs:
       # no `gradle-wrapper.jar`, so the `./gradlew build` in the README could not run on
       # a fresh clone. The scripts are now committed; this regenerates the JAR if it is
       # ever missing so that CI reports the gap loudly instead of failing obscurely.
-      - name: Ensure the Gradle wrapper JAR is present
+      - name: Ensure the Gradle wrapper is usable
         run: |
           if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
             version=$(sed -n 's/.*gradle-\([0-9.]*\)-bin\.zip/\1/p' gradle/wrapper/gradle-wrapper.properties)
             echo "::warning file=gradle/wrapper/gradle-wrapper.properties::gradle-wrapper.jar is missing; regenerating for Gradle $version. Commit it with: gradle wrapper --gradle-version $version"
             gradle wrapper --gradle-version "$version"
+          fi
+          # The launcher needs the executable bit; `git update-index --chmod=+x gradlew`
+          # records it permanently.
+          if [ ! -x gradlew ]; then
+            echo "::warning file=gradlew::gradlew is not executable. Fix it permanently with: git update-index --chmod=+x gradlew"
+            chmod +x gradlew
           fi
 
       - name: Validate the Gradle wrapper
